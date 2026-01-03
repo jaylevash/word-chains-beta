@@ -1,0 +1,450 @@
+﻿Purpose
+This document breaks every MVP engineering task into the smallest practical steps and defines explicit testing logic for each step so you always know whether to debug or move forward.
+* Mobile-first web implementation assumed (Next.js + Tailwind)
+* This is a build-order checklist, not a high-level design doc
+________________
+
+
+Key Constraints (Non-Negotiable)
+* 16-word bank displayed as a 4×4 grid
+   * 6 correct words
+   * 10 dummy words
+* 4 total guesses
+* Progressive column reveal (Wordle-style)
+* Local device midnight reset
+* No hints
+* No multi-word phrases
+* Proper nouns allowed
+* Archive play enabled
+________________
+
+
+How to Use This Checklist
+* Work top to bottom. Do not start a later task until the current task’s tests pass.
+* After each step, run the listed tests.
+* If any test fails, stop immediately and debug. Do not “push through.”
+* Use one sample puzzle (hardcoded or seeded) until the full game loop is perfect.
+* Always test on a real phone browser at least once per epic (iOS Safari / Android Chrome).
+________________
+
+
+Global Definitions (For Consistency)
+* Board
+The 8 vertical chain positions:
+   * Word1 fixed
+   * Word2–Word7 editable
+   * Word8 fixed
+   * Attempt / Guess Column
+One vertical column of 8 tiles for a single guess.
+   * Active Attempt
+The guess currently being filled.
+   * Validated Attempt
+A guess that has been submitted and colored.
+   * Word Bank
+The 4×4 grid of 16 selectable tiles.
+   * Best-Known Color
+Per-word outline color in the bank that never downgrades
+(green > yellow > red).
+________________
+
+
+EPIC 0 — Project Setup & Local Dev Baseline
+________________
+
+
+E0.1 Initialize Repo + Next.js App
+Steps
+      * Step 0.1.1 Create repo folder, initialize git, add README with run instructions.
+      * Step 0.1.2 Create Next.js project using App Router.
+      * Step 0.1.3 Verify dev server starts and default page renders.
+Testing / Pass Criteria
+      * npm run dev runs without errors.
+      * Browser: http://localhost:3000 loads.
+      * Console: no red errors.
+________________
+
+
+E0.2 Tailwind, Base Styling, Responsive Viewport
+Steps
+      * Step 0.2.1 Install and configure Tailwind per Next.js docs.
+      * Step 0.2.2 Add mobile viewport meta tag
+(width=device-width, initial-scale=1).
+      * Step 0.2.3 Create base layout placeholders:
+         * Header area
+         * Board area
+         * Bank area
+Testing / Pass Criteria
+         * Tailwind styles visibly apply.
+         * iPhone-sized viewport: no horizontal scrolling.
+         * Landscape orientation remains usable (vertical scroll allowed if needed).
+________________
+
+
+E0.3 Lint, Format, Build Verification
+Steps
+         * Step 0.3.1 Add ESLint config and run lint.
+         * Step 0.3.2 Add Prettier (optional).
+         * Step 0.3.3 Run production build.
+Testing / Pass Criteria
+         * npm run lint returns zero errors.
+         * npm run build completes successfully.
+________________
+
+
+EPIC 1 — Puzzle Data Layer (Hardcoded First)
+________________
+
+
+E1.1 Define Canonical Puzzle Object
+Steps
+         * Step 1.1.1 Define TypeScript Puzzle interface:
+         * words_1_to_8 (length 8)
+         * dummy_words (length 10)
+         * puzzleNumber / id
+         * mode (daily / archive)
+         * Step 1.1.2 Hardcode one valid puzzle locally.
+         * Step 1.1.3 Render Word1 and Word8 immediately on the board.
+Testing / Pass Criteria
+         * TypeScript build passes.
+         * Word1 and Word8 appear and are non-editable.
+         * Console log confirms 8 chain words + 10 dummies.
+________________
+
+
+E1.2 Build Word Bank Generator
+Steps
+         * Step 1.2.1 Extract solution words (Word2–Word7).
+         * Step 1.2.2 Combine with 10 dummy words (total 16).
+         * Step 1.2.3 Shuffle order
+(recommended: deterministic shuffle using puzzle id).
+         * Step 1.2.4 Render as a 4×4 grid.
+Testing / Pass Criteria
+            * Exactly 16 bank tiles render.
+            * All solution + dummy words present.
+            * Deterministic shuffle is stable on reload (if chosen).
+            * No word wraps to two lines on mobile.
+________________
+
+
+E1.3 Daily / Archive Routing (No DB Yet)
+Steps
+            * Step 1.3.1 Create routes:
+            * /daily (or /)
+            * /archive
+            * Step 1.3.2 Archive page shows puzzle list (hardcoded).
+            * Step 1.3.3 Clicking an archive puzzle loads it into the game.
+Testing / Pass Criteria
+            * Archive list loads correctly.
+            * Puzzle loads with correct Word1/Word8.
+            * Back button preserves list state.
+________________
+
+
+EPIC 2 — Core Game State Engine
+________________
+
+
+E2.1 Define In-Memory Game State
+Steps
+            * Step 2.1.1 Define guesses as array of 4 attempts (each 8 slots).
+            * Step 2.1.2 Always populate Word1 and Word8.
+            * Step 2.1.3 Define currentAttemptIndex (0–3).
+            * Step 2.1.4 Define activeSlotIndex (Word2–Word7 only).
+            * Step 2.1.5 Define heldWord (string | null).
+Testing / Pass Criteria
+            * First load starts at attempt 0.
+            * Active slot defaults to Word2.
+            * No runtime errors on init.
+________________
+
+
+E2.2 Tap-to-Hold Bank Tiles
+Steps
+            * Step 2.2.1 Tap tile → sets heldWord.
+            * Step 2.2.2 Show visual selection state.
+            * Step 2.2.3 Tapping again deselects.
+Testing / Pass Criteria
+            * Selection toggles correctly.
+            * Only one tile held at a time.
+            * Disabled tiles cannot be selected.
+________________
+
+
+E2.3 Place Held Word Into Slot
+Steps
+            * Step 2.3.1 Tap empty slot → place heldWord.
+            * Step 2.3.2 No-op if heldWord is null.
+            * Step 2.3.3 Block duplicate words in same attempt.
+            * Step 2.3.4 Clear heldWord after placement.
+            * Step 2.3.5 Auto-advance to next empty slot.
+Testing / Pass Criteria
+            * Word appears in slot.
+            * Bank tile greys out.
+            * Duplicate placement blocked with feedback.
+            * Active slot auto-advances.
+________________
+
+
+E2.4 Slot Selection Override
+Steps
+            * Step 2.4.1 Tapping any empty slot makes it active.
+            * Step 2.4.2 If heldWord exists, place immediately.
+Testing / Pass Criteria
+            * Slot highlight updates.
+            * Word places into tapped slot (not forced order).
+________________
+
+
+E2.5 Remove Placed Word
+Steps
+            * Step 2.5.1 Tap filled editable slot → remove word.
+            * Step 2.5.2 Return word to bank.
+            * Step 2.5.3 Set active slot to cleared slot.
+Testing / Pass Criteria
+            * Word disappears from slot.
+            * Bank tile becomes available again.
+            * Active slot updates correctly.
+________________
+
+
+EPIC 3 — Submission, Validation, Locking, Colors
+________________
+
+
+E3.1 Submit Button Rules
+Steps
+            * Step 3.1.1 Disabled until all 6 editable slots filled.
+            * Step 3.1.2 Locked greens only count if placed.
+            * Step 3.1.3 Start/end words ignored.
+Testing / Pass Criteria
+            * Disabled until all 6 slots filled.
+            * Removing a word disables submit again.
+________________
+
+
+E3.2 Validation Algorithm
+Steps
+            * Step 3.2.1 Extract solution words (Word2–Word7).
+            * Step 3.2.2 Exact position match → green.
+            * Step 3.2.3 Exists elsewhere → yellow.
+            * Step 3.2.4 Otherwise → red.
+            * Step 3.2.5 Store per-slot results.
+Testing / Pass Criteria
+            * Correct guess = all green.
+            * Swapped words = yellow.
+            * Dummy word = red.
+________________
+
+
+E3.3 Apply Validation + Flip Animation
+Steps
+            * Step 3.3.1 Lock input during animation.
+            * Step 3.3.2 Flip tiles sequentially.
+            * Step 3.3.3 Re-enable input after animation.
+            * Step 3.3.4 Persist colors.
+Testing / Pass Criteria
+            * Flip animation visible.
+            * No input during animation.
+            * Colors persist afterward.
+________________
+
+
+E3.4 Green Locking
+Steps
+            * Step 3.4.1 Mark green positions as locked.
+            * Step 3.4.2 Prevent changes to locked slots.
+            * Step 3.4.3 Optionally show lock indicator.
+Testing / Pass Criteria
+            * Locked positions cannot be edited.
+            * Non-green positions remain editable.
+________________
+
+
+E3.5 Best-Known Color Rule
+Steps
+            * Step 3.5.1 Track word → bestColor.
+            * Step 3.5.2 Upgrade only (green > yellow > red).
+            * Step 3.5.3 Render bank outlines accordingly.
+Testing / Pass Criteria
+            * Yellow upgrades to green.
+            * Green never downgrades.
+________________
+
+
+EPIC 4 — Progressive Columns & Layout
+________________
+
+
+E4.1 Progressive Column Rendering
+Steps
+            * Step 4.1.1 Render columns up to currentAttemptIndex.
+            * Step 4.1.2 Previous columns become read-only.
+            * Step 4.1.3 New column becomes active after submit.
+Testing / Pass Criteria
+            * 1 column on load.
+            * Columns accumulate after each submit.
+            * Old columns are non-interactive.
+________________
+
+
+E4.2 No-Scroll Mobile Layout
+Steps
+            * Step 4.2.1 Board + bank fit standard mobile height.
+            * Step 4.2.2 Use responsive sizing (CSS clamp).
+            * Step 4.2.3 Allow scroll only as last resort.
+Testing / Pass Criteria
+            * Modern phones: no vertical scroll.
+            * Small phones: graceful shrink before scroll.
+            * No horizontal scroll ever.
+________________
+
+
+E4.3 Visual Polish
+Steps
+            * Step 4.3.1 Clean spacing and centering.
+            * Step 4.3.2 Clear tile states.
+            * Step 4.3.3 Tap targets ≥ 44px.
+Testing / Pass Criteria
+            * Easy to tap on real device.
+            * Text legible.
+            * UI feels uncluttered.
+________________
+
+
+EPIC 5 — Win, Loss, Results, Sharing
+________________
+
+
+E5.1 Win Detection
+Steps
+            * Step 5.1.1 All six greens → win.
+            * Step 5.1.2 Disable input.
+            * Step 5.1.3 Show confetti + reveal chain.
+Testing / Pass Criteria
+            * Win triggers immediately.
+            * Input disabled afterward.
+________________
+
+
+E5.2 Loss Detection
+Steps
+            * Step 5.2.1 After 4th failed attempt → loss.
+            * Step 5.2.2 Disable input.
+            * Step 5.2.3 Reveal chain.
+Testing / Pass Criteria
+            * Loss triggers after 4th guess.
+            * Chain revealed.
+________________
+
+
+E5.3 Results Modal
+Steps
+            * Step 5.3.1 Show puzzle number, result, emoji grid.
+            * Step 5.3.2 Show Share button + countdown.
+            * Step 5.3.3 Allow dismissal (optional).
+Testing / Pass Criteria
+            * Modal appears automatically.
+            * Countdown updates.
+            * Share works.
+________________
+
+
+E5.4 Emoji Grid
+Steps
+            * Step 5.4.1 8 emojis per row.
+            * Step 5.4.2 Include Word1 and Word8.
+            * Step 5.4.3 Colors match board.
+Testing / Pass Criteria
+            * Rows always length 8.
+            * Colors correct.
+________________
+
+
+E5.5 Share Format
+Steps
+            * Step 5.5.1 Compose locked share text.
+            * Step 5.5.2 Copy-to-clipboard / Web Share API.
+            * Step 5.5.3 Verify formatting in common apps.
+Testing / Pass Criteria
+            * Formatting preserved.
+            * Link included.
+________________
+
+
+EPIC 6 — Persistence, Archives, Analytics
+________________
+
+
+E6.1 Local Persistence
+Steps
+            * Step 6.1.1 Define storage namespace.
+            * Step 6.1.2 Persist on every state change.
+            * Step 6.1.3 Safe reset on corruption.
+Testing / Pass Criteria
+            * Refresh preserves state.
+            * Corruption resets cleanly.
+________________
+
+
+E6.2 Archive Play Rules
+Steps
+            * Step 6.2.1 Separate daily vs archive state.
+            * Step 6.2.2 Persist per puzzle id.
+Testing / Pass Criteria
+            * Archive does not overwrite daily.
+________________
+
+
+E6.3 Analytics (GA)
+Steps
+            * Step 6.3.1 Add pageviews.
+            * Step 6.3.2 Emit key events.
+            * Step 6.3.3 Include useful parameters.
+Testing / Pass Criteria
+            * Events visible in GA debug.
+________________
+
+
+EPIC 7 — Supabase (After Core Loop Works)
+________________
+
+
+E7.1 Supabase Setup
+Steps
+            * Step 7.1.1 Create project.
+            * Step 7.1.2 Create puzzles table.
+            * Step 7.1.3 Seed 3–5 puzzles.
+Testing / Pass Criteria
+            * Table returns data correctly.
+________________
+
+
+E7.2 Fetch Puzzles From DB
+Steps
+            * Step 7.2.1 Create API route.
+            * Step 7.2.2 Add rate limiting placeholder.
+            * Step 7.2.3 Return minimal data.
+Testing / Pass Criteria
+            * Game loads from DB.
+            * Endpoint behaves correctly.
+________________
+
+
+E7.3 Daily Selection Logic
+Steps
+            * Step 7.3.1 Select unused puzzle.
+            * Step 7.3.2 Mark as used.
+            * Step 7.3.3 Lock puzzle per local date.
+Testing / Pass Criteria
+            * Same puzzle all day.
+            * New puzzle at midnight.
+________________
+
+
+Appendix — Debugging Quick Triage
+            * Placement bugs → log heldWord, activeSlotIndex, currentAttemptIndex
+            * Color bugs → log solution vs guess arrays
+            * Bank issues → compare used words vs bank words
+            * Layout bugs → inspect overflow and grid sizing
+            * Persistence bugs → version localStorage schema
+________________

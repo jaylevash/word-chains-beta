@@ -1,0 +1,250 @@
+﻿Word Chains — Initial Game Specifications (v1)
+________________
+
+
+Overview
+Word Chains is a daily, mobile-first word puzzle game designed for college-educated adults.
+The experience is inspired by Wordle and Connections, but introduces a new mechanic: sequential linguistic reasoning.
+Players must reconstruct a hidden 8-word chain using a limited number of guesses and a mixed word bank containing both correct and misleading words.
+The game prioritizes:
+* clarity
+* fairness
+* replayability
+* shareability
+* minimal UI friction
+________________
+
+
+High-Level Goals
+* Feel immediately familiar to Wordle / NYT Games players
+* Offer a fresh “aha” experience through word-to-word pivots
+* Minimize scrolling on mobile
+* Enable clean analytics and iteration
+* Be structurally defensible for eventual NYT-style editorial review
+________________
+
+
+Game Identity
+* Game Name: Word Chains
+* Tagline: Placeholder (to be finalized)
+* Puzzle Labeling: Word Chains #123
+* Visual Style: Clean, minimal, Wordle-adjacent
+* Tone: Smart, clever, not gimmicky
+________________
+
+
+Core Puzzle Structure
+* Each puzzle consists of one 8-word chain:
+   * Word1 → Word2 → Word3 → Word4 → Word5 → Word6 → Word7 → Word8
+* Word1 and Word8:
+   * Always visible
+   * Fixed
+   * Flip green after the first submission
+* Words 2–7:
+   * Hidden at the start
+   * Must be guessed by the player
+* There is exactly one correct solution.
+________________
+
+
+Word Bank
+* Total words shown: 16
+   * 6 correct (Words 2–7)
+   * 10 dummy words
+* Displayed as a 4×4 grid
+* No shuffle button
+* No scrolling required in standard mobile view
+Dummy Word Rules
+* Must be single words
+* Must be thematically related and tempting
+* Must NOT allow an alternate valid full chain
+* May reappear across puzzles, but repetition should be infrequent
+________________
+
+
+Guessing Rules
+* Total guesses allowed: 4
+* Each guess fills all 6 editable slots before submission
+* Submit button:
+   * Disabled until all slots are filled
+   * Enabled only when a complete guess is present
+________________
+
+
+Interaction Model
+* Tap-to-place / tap-to-hold interaction (primary)
+* Drag-and-drop may be added in v2
+* No undo button
+* No “clear row” button
+* To remove a word:
+   * Tap the placed word to return it to the bank
+* Auto-advance to next empty slot after placement
+* User may manually tap any empty slot to make it active
+________________
+
+
+Validation & Feedback
+Validation occurs after each guess and follows Wordle-style rules:
+* Green
+   * Correct word in correct position
+* Yellow
+   * Correct word, wrong position
+* Red
+   * Word not in the solution
+Additional Validation Rules
+* Validation colors persist across guesses
+* “Best-known color” applies:
+   * Green overrides yellow and red
+   * Yellow overrides red
+* Bank tiles show outline colors based on best-known state
+* Words used in the active guess are greyed out in the bank
+________________
+
+
+Progressive Column Reveal
+To reduce visual overload and scrolling:
+* Guess 1:
+   * Only the active column is visible
+* Guess 2:
+   * Guess 1 (validated) + Guess 2 (active)
+* Guess 3:
+   * Guesses 1 & 2 (validated) + Guess 3 (active)
+* Guess 4:
+   * Guesses 1–3 (validated) + Guess 4 (active)
+Previous guesses are read-only once validated.
+________________
+
+
+Animations & Visual Feedback
+* Tiles flip on submission (staggered animation)
+* Flip reveals validation color
+* Flip animation blocks input until completion
+* Green tiles visually “lock” once confirmed
+________________
+
+
+End States
+Win Condition
+* All 6 editable slots are green in a single guess
+* Confetti animation plays
+* Correct chain is revealed
+Loss Condition
+* All 4 guesses used without solving
+* Correct chain is revealed
+________________
+
+
+Results Modal
+Appears automatically after win or loss.
+Includes:
+* Puzzle number
+* Result (Solved in X / Failed)
+* Emoji grid
+* Share button
+* Countdown to next puzzle
+* “Come back tomorrow” message
+Modal may be dismissible but should remain accessible.
+________________
+
+
+Emoji Share Grid
+* Format is locked
+* Each row is 8 emojis wide
+* One row per submitted guess
+* Word1 and Word8 are always green after first submission
+* Emoji grid reflects final validation colors
+Share text includes:
+* Title line (Word Chains #123)
+* Emoji grid
+* Blank line
+* wordchains.io
+________________
+
+
+Time & Puzzle Reset
+* Puzzle resets at local device midnight
+* Same puzzle persists all day
+* Archive puzzles are replayable
+________________
+
+
+Archive Mode
+* Players may replay past puzzles
+* Archive play:
+   * Does NOT affect streaks
+   * DOES contribute to analytics
+* Archive puzzles are clearly labeled
+________________
+
+
+Hints & Explanations
+* No hints
+* No pre-game explanation
+* No post-game explanation
+* Puzzle is expected to be learnable by play
+________________
+
+
+Difficulty System
+Each puzzle is labeled internally as:
+* GREEN: obvious compounds/collocations
+* BLUE: mild abstraction, still fair
+* PURPLE: layered linguistic or cultural pivots
+Target distribution:
+* ~40% GREEN
+* ~40% BLUE
+* ~20% PURPLE
+Difficulty labels are not shown to players (v1).
+________________
+
+
+Statistics & Progression (v1 + v2)
+MVP (v1)
+* Anonymous play
+* Local device persistence
+* Basic analytics only
+Planned for v2
+* Accounts
+* Streaks
+* Guess distribution
+* Average solve time
+* Share stats
+* Difficulty breakdowns
+Streak rules:
+* Consecutive days solved
+* Loss or not playing breaks streak
+________________
+
+
+Ads & Monetization
+* Ignored for v1
+* Focus is on gameplay quality and engagement
+* Monetization deferred to v2+
+________________
+
+
+Platform & Device Assumptions
+* Primary platform: mobile web
+* Desktop supported but not optimized first
+* Touch-first interactions
+* Accessibility improvements planned for v2
+________________
+
+
+Differentiation
+Word Chains differentiates itself by:
+* Sequential reasoning (not grouping)
+* Linguistic pivots between words
+* Progressive reveal mechanic
+* Dense but fair word banks
+* High “aha-per-puzzle” ratio
+________________
+
+
+Non-Goals (v1)
+* No hints
+* No tutorials
+* No multiplayer
+* No explanations
+* No ads
+* No accounts
