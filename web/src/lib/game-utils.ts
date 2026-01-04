@@ -82,12 +82,7 @@ export const formatShareGrid = (rows: TileColor[][]) =>
     .join("\n");
 
 export const formatShareText = (puzzleNumber: number, grid: TileColor[][]) =>
-  [
-    `Word Chains #${puzzleNumber}`,
-    formatShareGrid(grid),
-    "",
-    "https://word-chains-beta.vercel.app",
-  ].join("\n");
+  [`Word Chains #${puzzleNumber}`, formatShareGrid(grid)].join("\n");
 
 export const msUntilMidnight = () => {
   const now = new Date();
