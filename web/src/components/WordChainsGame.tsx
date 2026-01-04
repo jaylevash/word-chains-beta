@@ -343,7 +343,7 @@ export function WordChainsGame({
         </button>
       </header>
 
-      <main className="mx-auto flex w-full max-w-4xl flex-col items-center gap-1.5 px-3 pb-3 sm:gap-2 sm:px-6 sm:pb-8">
+      <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col items-center gap-1.5 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:gap-2 sm:px-6 sm:pb-8">
         <section className="flex w-full flex-col gap-1 rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
           <div className="flex items-center justify-center gap-3">
             {[0, 1, 2, 3].map((idx) => {
@@ -440,7 +440,7 @@ export function WordChainsGame({
           </div>
         </section>
 
-        <section className="flex w-full flex-col gap-1 rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
+        <section className="flex w-full min-h-0 flex-1 flex-col gap-1 rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
           <div className="flex flex-col items-center gap-1 text-center">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 sm:text-sm">
               Word Bank
@@ -449,7 +449,7 @@ export function WordChainsGame({
               Tap to hold, tap slot to place. Tap placed word to remove.
             </p>
           </div>
-          <div className="grid grid-cols-4 gap-1 sm:gap-2">
+          <div className="grid flex-1 content-start grid-cols-4 gap-1 sm:gap-2">
             {bankTileState.map((tile) => {
               const tone =
                 tile.bestColor === "green"
