@@ -689,6 +689,34 @@ export function WordChainsGame({
                 Build the 8-word chain. Words 1 and 8 are shown; fill in the six
                 missing links from the word bank.
               </p>
+              <div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Sample chain
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
+                  {[
+                    "Key",
+                    "Chain",
+                    "Reaction",
+                    "Time",
+                    "Zone",
+                    "Defense",
+                    "Mechanism",
+                    "Failure",
+                  ].map((word, idx) => (
+                    <span key={word} className="flex items-center gap-1">
+                      <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px]">
+                        {word}
+                      </span>
+                      {idx < 7 ? <span className="text-slate-300">→</span> : null}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Each adjacent pair forms a common phrase (Key Chain, Chain
+                  Reaction, Reaction Time, etc.).
+                </p>
+              </div>
               <ul className="list-disc space-y-2 pl-5">
                 <li>Tap a bank word to hold it, then tap a slot to place.</li>
                 <li>Tap a placed word to remove it.</li>
