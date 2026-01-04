@@ -255,9 +255,29 @@ export function WordChainsGame({
   const copyShare = async () => {
     if (!shareRows.length) return;
     try {
-      await navigator.clipboard.writeText(
-        formatShareText(puzzle.puzzleNumber, shareRows)
-      );
+      const shareText = formatShareText(puzzle.puzzleNumber, shareRows);
+      if (typeof navigator !== "undefined" && "share" in navigator) {
+        try {
+          await navigator.share({
+            title: `Word Chains #${puzzle.puzzleNumber}`,
+            text: shareText,
+          });
+          setShareMessage("Share sheet opened — send it to a friend!");
+          if (shareTimeoutRef.current) {
+            window.clearTimeout(shareTimeoutRef.current);
+          }
+          shareTimeoutRef.current = window.setTimeout(() => {
+            setShareMessage(null);
+            shareTimeoutRef.current = null;
+          }, 2500);
+          return;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+        }
+      }
+      await navigator.clipboard.writeText(shareText);
       setStatusNote("Copied results to clipboard.");
       setShareMessage("Copied! Share your chain with friends or family.");
       if (shareTimeoutRef.current) {
