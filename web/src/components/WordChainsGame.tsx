@@ -256,11 +256,13 @@ export function WordChainsGame({
     if (!shareRows.length) return;
     try {
       const shareText = formatShareText(puzzle.puzzleNumber, shareRows);
+      const shareUrl = "https://word-chains-beta.vercel.app";
       if (typeof navigator !== "undefined" && "share" in navigator) {
         try {
           await navigator.share({
             title: `Word Chains #${puzzle.puzzleNumber}`,
             text: shareText,
+            url: shareUrl,
           });
           setShareMessage("Share sheet opened — send it to a friend!");
           if (shareTimeoutRef.current) {
