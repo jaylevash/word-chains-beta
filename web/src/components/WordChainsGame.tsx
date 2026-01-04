@@ -326,25 +326,25 @@ export function WordChainsGame({
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-amber-50 text-slate-900">
-      <header className="relative flex flex-col items-center gap-1 px-4 py-2 sm:px-6 sm:py-4">
-        <div className="absolute left-4 top-2 text-xs font-semibold text-slate-500 sm:top-4 sm:text-sm">
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2 sm:px-6 sm:py-4">
+        <div className="justify-self-start text-xs font-semibold text-slate-500 sm:text-sm">
           Puzzle #{puzzle.puzzleNumber}
         </div>
-        <h1 className="bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 bg-clip-text text-xl font-semibold text-transparent sm:text-3xl">
+        <h1 className="justify-self-center bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 bg-clip-text text-xl font-semibold text-transparent sm:text-3xl">
           Word Chains
         </h1>
         <button
           type="button"
           onClick={() => setShowHelp(true)}
           aria-label="How to play"
-          className="absolute right-4 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700"
+          className="justify-self-end flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-semibold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700 sm:h-8 sm:w-8 sm:text-sm"
         >
           ?
         </button>
       </header>
 
-      <main className="mx-auto flex w-full max-w-4xl flex-col items-center gap-2 px-3 pb-5 sm:px-6 sm:pb-8">
-        <section className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
+      <main className="mx-auto flex w-full max-w-4xl flex-col items-center gap-1.5 px-3 pb-3 sm:gap-2 sm:px-6 sm:pb-8">
+        <section className="flex w-full flex-col gap-1 rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
           <div className="flex items-center justify-center gap-3">
             {[0, 1, 2, 3].map((idx) => {
               const isSubmitted = idx < submittedCount;
@@ -371,7 +371,7 @@ export function WordChainsGame({
               </div>
             ) : null}
           </div>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(64px,1fr))] gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(64px,1fr))] gap-1 sm:gap-2">
             {attempts.map((attempt, attemptIdx) => {
               if (attemptIdx > currentAttempt) return null;
               const isActive = attemptIdx === currentAttempt && result === "playing";
@@ -424,7 +424,7 @@ export function WordChainsGame({
               );
             })}
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-0.5">
             <button
               type="button"
               onClick={handleSubmit}
@@ -440,7 +440,7 @@ export function WordChainsGame({
           </div>
         </section>
 
-        <section className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
+        <section className="flex w-full flex-col gap-1 rounded-2xl bg-white p-1.5 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
           <div className="flex flex-col items-center gap-1 text-center">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 sm:text-sm">
               Word Bank
@@ -449,7 +449,7 @@ export function WordChainsGame({
               Tap to hold, tap slot to place. Tap placed word to remove.
             </p>
           </div>
-          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-4 gap-1 sm:gap-2">
             {bankTileState.map((tile) => {
               const tone =
                 tile.bestColor === "green"
