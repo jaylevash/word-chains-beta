@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     {
       user_id,
       puzzle_id,
+      user_name: user_name ?? null,
       difficulty_rating,
       creativity_rating,
       comment: comment ?? null,
