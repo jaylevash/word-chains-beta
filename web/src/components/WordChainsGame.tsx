@@ -326,13 +326,13 @@ export function WordChainsGame({
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-amber-50 text-slate-900">
-      <header className="relative flex flex-col items-center gap-1 px-4 py-3 sm:px-6 sm:py-4">
-        <h1 className="bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 bg-clip-text text-2xl font-semibold text-transparent sm:text-3xl">
+      <header className="relative flex flex-col items-center gap-1 px-4 py-2 sm:px-6 sm:py-4">
+        <div className="absolute left-4 top-2 text-xs font-semibold text-slate-500 sm:top-4 sm:text-sm">
+          Puzzle #{puzzle.puzzleNumber}
+        </div>
+        <h1 className="bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 bg-clip-text text-xl font-semibold text-transparent sm:text-3xl">
           Word Chains
         </h1>
-        <p className="text-sm font-medium text-slate-500 sm:text-base">
-          Puzzle #{puzzle.puzzleNumber}
-        </p>
         <button
           type="button"
           onClick={() => setShowHelp(true)}
@@ -343,8 +343,8 @@ export function WordChainsGame({
         </button>
       </header>
 
-      <main className="mx-auto flex w-full max-w-4xl flex-col items-center gap-3 px-3 pb-6 sm:px-6 sm:pb-8">
-        <section className="flex w-full flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
+      <main className="mx-auto flex w-full max-w-4xl flex-col items-center gap-2 px-3 pb-5 sm:px-6 sm:pb-8">
+        <section className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
           <div className="flex items-center justify-center gap-3">
             {[0, 1, 2, 3].map((idx) => {
               const isSubmitted = idx < submittedCount;
@@ -357,7 +357,7 @@ export function WordChainsGame({
               return (
                 <div
                   key={idx}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border text-[11px] font-semibold sm:h-9 sm:w-9 sm:text-xs ${tone}`}
+                  className={`flex h-6 w-6 items-center justify-center rounded-full border text-[9px] font-semibold sm:h-9 sm:w-9 sm:text-xs ${tone}`}
                 >
                   {idx + 1}
                 </div>
@@ -371,7 +371,7 @@ export function WordChainsGame({
               </div>
             ) : null}
           </div>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(68px,1fr))] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(64px,1fr))] gap-1.5 sm:gap-2">
             {attempts.map((attempt, attemptIdx) => {
               if (attemptIdx > currentAttempt) return null;
               const isActive = attemptIdx === currentAttempt && result === "playing";
@@ -379,9 +379,9 @@ export function WordChainsGame({
               return (
                 <div
                   key={attemptIdx}
-                  className="flex flex-col gap-1.5 rounded-xl bg-slate-50 p-2 sm:gap-2"
+                  className="flex flex-col gap-1 rounded-xl bg-slate-50 p-2 sm:gap-2"
                 >
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-xs">
+                  <div className="hidden text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:block sm:text-xs">
                     {isActive ? "Active" : "Locked"}
                   </div>
                   {attempt.map((word, slotIdx) => {
@@ -405,7 +405,7 @@ export function WordChainsGame({
                         key={slotIdx}
                         type="button"
                         onClick={() => handleSlotClick(slotIdx)}
-                        className={`flex h-[clamp(34px,4.2vh,42px)] items-center justify-center rounded-lg border text-[11px] font-semibold uppercase tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:text-xs ${
+                        className={`flex h-[clamp(30px,3.6vh,38px)] items-center justify-center rounded-lg border text-[10px] font-semibold uppercase tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:text-xs ${
                           isSlotActive ? "ring-2 ring-slate-400 ring-offset-2" : ""
                         } ${!isEditable ? "cursor-default" : "cursor-pointer"} ${baseColor}`}
                         disabled={!isEditable || disabledBecauseDone || !isActive}
@@ -429,7 +429,7 @@ export function WordChainsGame({
               type="button"
               onClick={handleSubmit}
               disabled={!activeEditableFilled || disabledBecauseDone}
-              className={`rounded-full px-5 py-2 text-sm font-semibold uppercase tracking-wide transition ${
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition sm:px-5 sm:py-2 sm:text-sm ${
                 !activeEditableFilled || disabledBecauseDone
                   ? "cursor-not-allowed bg-slate-200 text-slate-400"
                   : "bg-slate-900 text-amber-50 hover:bg-slate-800"
@@ -440,16 +440,16 @@ export function WordChainsGame({
           </div>
         </section>
 
-        <section className="flex w-full flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
+        <section className="flex w-full flex-col gap-1.5 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100 sm:gap-3 sm:p-4">
           <div className="flex flex-col items-center gap-1 text-center">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 sm:text-sm">
               Word Bank
             </h2>
             <p className="hidden text-xs text-slate-500 sm:block">
               Tap to hold, tap slot to place. Tap placed word to remove.
             </p>
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
             {bankTileState.map((tile) => {
               const tone =
                 tile.bestColor === "green"
@@ -466,7 +466,7 @@ export function WordChainsGame({
                   type="button"
                   disabled={tile.disabled}
                   onClick={() => handleSelectBankWord(tile.word)}
-                  className={`flex h-[clamp(30px,3.8vh,38px)] items-center justify-center rounded-xl border text-[11px] font-semibold uppercase tracking-wide transition sm:text-xs ${
+                  className={`flex h-[clamp(26px,3.2vh,34px)] items-center justify-center rounded-xl border text-[10px] font-semibold uppercase tracking-wide transition sm:text-xs ${
                     tile.disabled ? "cursor-not-allowed opacity-50" : "hover:-translate-y-0.5 hover:shadow-sm"
                   } ${tone} ${isHeld ? "ring-2 ring-slate-400 ring-offset-2" : ""}`}
                 >
