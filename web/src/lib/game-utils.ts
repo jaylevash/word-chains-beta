@@ -86,7 +86,7 @@ export const formatShareText = (puzzleNumber: number, grid: TileColor[][]) =>
     `Word Chains #${puzzleNumber}`,
     formatShareGrid(grid),
     "",
-    "word-chains-beta.vercel.app",
+    "https://word-chains-beta.vercel.app",
   ].join("\n");
 
 export const msUntilMidnight = () => {
