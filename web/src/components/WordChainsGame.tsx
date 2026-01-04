@@ -405,7 +405,7 @@ export function WordChainsGame({
                         key={slotIdx}
                         type="button"
                         onClick={() => handleSlotClick(slotIdx)}
-                        className={`flex h-[clamp(30px,3.6vh,38px)] items-center justify-center rounded-lg border text-[10px] font-semibold uppercase tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:text-xs ${
+                        className={`flex h-[clamp(32px,3.9vh,40px)] items-center justify-center rounded-lg border text-[10px] font-semibold uppercase tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:text-xs ${
                           isSlotActive ? "ring-2 ring-slate-400 ring-offset-2" : ""
                         } ${!isEditable ? "cursor-default" : "cursor-pointer"} ${baseColor}`}
                         disabled={!isEditable || disabledBecauseDone || !isActive}
@@ -449,7 +449,7 @@ export function WordChainsGame({
               Tap to hold, tap slot to place. Tap placed word to remove.
             </p>
           </div>
-          <div className="grid flex-1 content-start grid-cols-4 gap-1 sm:gap-2">
+          <div className="grid flex-1 grid-cols-4 grid-rows-4 gap-1.5 sm:gap-2">
             {bankTileState.map((tile) => {
               const tone =
                 tile.bestColor === "green"
@@ -466,7 +466,7 @@ export function WordChainsGame({
                   type="button"
                   disabled={tile.disabled}
                   onClick={() => handleSelectBankWord(tile.word)}
-                  className={`flex h-[clamp(26px,3.2vh,34px)] items-center justify-center rounded-xl border text-[10px] font-semibold uppercase tracking-wide transition sm:text-xs ${
+                  className={`flex h-full min-h-[30px] items-center justify-center rounded-xl border text-[10px] font-semibold uppercase tracking-wide transition sm:h-[clamp(26px,3.2vh,34px)] sm:min-h-0 sm:text-xs ${
                     tile.disabled ? "cursor-not-allowed opacity-50" : "hover:-translate-y-0.5 hover:shadow-sm"
                   } ${tone} ${isHeld ? "ring-2 ring-slate-400 ring-offset-2" : ""}`}
                 >
