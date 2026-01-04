@@ -68,6 +68,7 @@ export function WordChainsGame({
   const [feedbackSaved, setFeedbackSaved] = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
+  const shareTimeoutRef = useRef<number | null>(null);
   const solution = useMemo(
     () => puzzle.words_1_to_8.slice(1, 7),
     [puzzle.words_1_to_8]
@@ -96,6 +97,7 @@ export function WordChainsGame({
   const [result, setResult] = useState<GameResult>("playing");
   const [isAnimating, setIsAnimating] = useState(false);
   const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
 
   const activeAttemptSlots = attempts[currentAttempt] ?? attempts[0];
   const activeEditableFilled = editableSlots.every(
@@ -256,8 +258,17 @@ export function WordChainsGame({
         formatShareText(puzzle.puzzleNumber, shareRows)
       );
       setStatusNote("Copied results to clipboard.");
+      setShareMessage("Copied! Share your chain with friends or family.");
+      if (shareTimeoutRef.current) {
+        window.clearTimeout(shareTimeoutRef.current);
+      }
+      shareTimeoutRef.current = window.setTimeout(() => {
+        setShareMessage(null);
+        shareTimeoutRef.current = null;
+      }, 2500);
     } catch {
       setStatusNote("Unable to copy. Try selecting manually.");
+      setShareMessage("Could not copy yet. Try again in a second.");
     }
   };
 
@@ -322,6 +333,14 @@ export function WordChainsGame({
       setIsResultsOpen(true);
     }
   }, [result]);
+
+  useEffect(() => {
+    return () => {
+      if (shareTimeoutRef.current) {
+        window.clearTimeout(shareTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-amber-50 text-slate-900">
@@ -546,6 +565,11 @@ export function WordChainsGame({
                 <div className="text-sm text-slate-600">All puzzles complete</div>
               )}
             </div>
+            {shareMessage ? (
+              <div className="mt-2 text-center text-xs font-medium text-amber-700">
+                {shareMessage}
+              </div>
+            ) : null}
 
             <div className="mt-5 border-t border-slate-200 pt-4">
               <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -584,7 +608,7 @@ export function WordChainsGame({
                     </select>
                   </label>
                   <label className="text-xs font-semibold text-slate-600">
-                    Creativity
+                    Logicalness
                     <select
                       value={creativityRating}
                       onChange={(event) => {
