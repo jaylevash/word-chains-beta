@@ -52,7 +52,7 @@ export function WordChainsGame({
   hasNextPuzzle?: boolean | null;
   onNextPuzzle?: () => void;
   onPuzzleComplete?: (payload: {
-    puzzleId: string;
+    puzzleRowId: number;
     result: "win" | "loss";
     attempts: number;
     durationSeconds: number;
@@ -69,6 +69,7 @@ export function WordChainsGame({
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
   const shareTimeoutRef = useRef<number | null>(null);
+  const puzzleRowId = Number.parseInt(puzzle.id, 10);
   const solution = useMemo(
     () => puzzle.words_1_to_8.slice(1, 7),
     [puzzle.words_1_to_8]
@@ -227,7 +228,7 @@ export function WordChainsGame({
     if (allGreen) {
       setResult("win");
       onPuzzleComplete?.({
-        puzzleId: puzzle.id,
+        puzzleRowId,
         result: "win",
         attempts: attemptsUsed,
         durationSeconds,
@@ -238,7 +239,7 @@ export function WordChainsGame({
     if (currentAttempt === attempts.length - 1) {
       setResult("loss");
       onPuzzleComplete?.({
-        puzzleId: puzzle.id,
+        puzzleRowId,
         result: "loss",
         attempts: attemptsUsed,
         durationSeconds,
@@ -286,7 +287,7 @@ export function WordChainsGame({
         body: JSON.stringify({
           user_id: userId,
           user_name: name.trim() || null,
-          puzzle_id: puzzle.id,
+          puzzle_row_id: puzzleRowId,
           difficulty_rating: difficultyRating,
           creativity_rating: creativityRating,
           comment: comment.trim() || null,
@@ -718,7 +719,7 @@ export function WordChainsGame({
 export default WordChainsGame;
 
 type CompletionPayload = {
-  puzzleId: string;
+  puzzleRowId: number;
   result: "win" | "loss";
   attempts: number;
   durationSeconds: number;
@@ -796,7 +797,7 @@ export function WordChainsApp() {
   }, [userId]);
 
   const handlePuzzleComplete = async ({
-    puzzleId,
+    puzzleRowId,
     result,
     attempts,
     durationSeconds,
@@ -808,7 +809,7 @@ export function WordChainsApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          puzzle_id: puzzleId,
+          puzzle_row_id: puzzleRowId,
           result,
           attempts,
           duration_seconds: durationSeconds,
