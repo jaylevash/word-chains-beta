@@ -53,7 +53,7 @@ export function WordChainsGame({
   onNextPuzzle?: () => void;
   onPuzzleComplete?: (payload: {
     puzzleId: string;
-    result: GameResult;
+    result: "win" | "loss";
     attempts: number;
     durationSeconds: number;
   }) => void;
