@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { seededShuffle } from "@/lib/game-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: puzzlesError.message }, { status: 500 });
   }
 
-  const next = (puzzles ?? []).find(
+  const shuffled = seededShuffle(puzzles ?? [], user_id);
+  const next = shuffled.find(
     (puzzle) => !playedIds.has(puzzle.puzzle_id)
   ) as DbPuzzle | undefined;
 

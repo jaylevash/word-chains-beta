@@ -92,6 +92,7 @@ export function WordChainsGame({
   const [shareRows, setShareRows] = useState<TileColor[][]>([]);
   const [guessOutcomes, setGuessOutcomes] = useState<boolean[]>([]);
   const [showHelp, setShowHelp] = useState(false);
+  const [isResultsOpen, setIsResultsOpen] = useState(false);
   const [result, setResult] = useState<GameResult>("playing");
   const [isAnimating, setIsAnimating] = useState(false);
   const [statusNote, setStatusNote] = useState<string | null>(null);
@@ -310,19 +311,17 @@ export function WordChainsGame({
 
   const submittedCount = shareRows.length;
   const fixedRevealed = colorsByAttempt.some((attempt) => attempt[0] === "green");
-  const showResultsModal = result !== "playing";
+  const showResultsModal = result !== "playing" && isResultsOpen;
   const canAdvance = hasNextPuzzle === true && Boolean(onNextPuzzle);
-  const submittedAttempts = attempts.slice(0, shareRows.length);
-
-  const resultTone = (color: TileColor) => {
-    if (color === "green") return "bg-emerald-100 text-emerald-900 border-emerald-500";
-    if (color === "yellow") return "bg-amber-100 text-amber-900 border-amber-500";
-    if (color === "red") return "bg-rose-100 text-rose-900 border-rose-500";
-    return "bg-slate-50 text-slate-700 border-slate-200";
-  };
 
   const successTone =
     "bg-emerald-100 text-emerald-900 border-emerald-500";
+
+  useEffect(() => {
+    if (result !== "playing") {
+      setIsResultsOpen(true);
+    }
+  }, [result]);
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-amber-50 text-slate-900">
@@ -425,18 +424,28 @@ export function WordChainsGame({
             })}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-0.5">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!activeEditableFilled || disabledBecauseDone}
-              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition sm:px-5 sm:py-2 sm:text-sm ${
-                !activeEditableFilled || disabledBecauseDone
-                  ? "cursor-not-allowed bg-slate-200 text-slate-400"
-                  : "bg-slate-900 text-amber-50 hover:bg-slate-800"
-              }`}
-            >
-              Submit Guess
-            </button>
+            {result !== "playing" ? (
+              <button
+                type="button"
+                onClick={() => setIsResultsOpen(true)}
+                className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 transition hover:border-slate-400 sm:px-5 sm:py-2 sm:text-sm"
+              >
+                View Results
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!activeEditableFilled || disabledBecauseDone}
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition sm:px-5 sm:py-2 sm:text-sm ${
+                  !activeEditableFilled || disabledBecauseDone
+                    ? "cursor-not-allowed bg-slate-200 text-slate-400"
+                    : "bg-slate-900 text-amber-50 hover:bg-slate-800"
+                }`}
+              >
+                Submit Guess
+              </button>
+            )}
           </div>
         </section>
 
@@ -480,7 +489,15 @@ export function WordChainsGame({
 
       {showResultsModal ? (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div className="relative w-full max-w-lg max-h-[85svh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+            <button
+              type="button"
+              onClick={() => setIsResultsOpen(false)}
+              aria-label="Close results"
+              className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700"
+            >
+              ×
+            </button>
             <div className="flex flex-col items-center gap-2 text-center">
               <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-50">
                 {result === "win" ? "Win" : "Loss"}
@@ -493,53 +510,15 @@ export function WordChainsGame({
                   ? `Solved in ${submittedCount} ${submittedCount === 1 ? "try" : "tries"}!`
                   : "Out of Guesses"}
               </h3>
-              <div className="flex flex-wrap items-center justify-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <div className="mt-2 w-full max-w-[220px] space-y-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
                 {puzzle.words_1_to_8.map((word, idx) => (
-                  <span key={`${word}-${idx}`} className="flex items-center gap-1">
-                    <span
-                      className={`rounded-full border px-2 py-1 text-[11px] ${successTone}`}
-                    >
-                      {word}
-                    </span>
-                    {idx < puzzle.words_1_to_8.length - 1 ? (
-                      <span className="text-slate-300">→</span>
-                    ) : null}
-                  </span>
+                  <div
+                    key={`${word}-${idx}`}
+                    className={`flex items-center justify-center rounded-full border px-2 py-1 text-[11px] ${successTone}`}
+                  >
+                    {word}
+                  </div>
                 ))}
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-col items-center gap-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Your guesses
-              </h4>
-              <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(72px,1fr))] gap-2">
-                {submittedAttempts.map((attempt, attemptIdx) => {
-                  const attemptColors = colorsByAttempt[attemptIdx] ?? emptyColors();
-                  return (
-                    <div
-                      key={`attempt-${attemptIdx}`}
-                      className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-tight"
-                    >
-                      {attempt.map((word, slotIdx) => {
-                        const slotColor =
-                          fixedRevealed && (slotIdx === 0 || slotIdx === 7)
-                            ? "green"
-                            : attemptColors[slotIdx] ?? "blank";
-                        return (
-                          <div
-                            key={`${attemptIdx}-${slotIdx}`}
-                            className={`flex min-w-0 items-center justify-center rounded-full border px-1 py-1 ${resultTone(
-                              slotColor
-                            )}`}
-                          >
-                            <span className="truncate">{word}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
               </div>
             </div>
 
