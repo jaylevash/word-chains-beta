@@ -54,7 +54,7 @@ export default async function ArchivePage() {
                   </div>
                 </div>
                 <Link
-                  href="/"
+                  href={`/puzzle/${puzzle.id}`}
                   className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-50 transition hover:bg-slate-800"
                 >
                   Play

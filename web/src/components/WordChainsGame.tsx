@@ -781,7 +781,12 @@ type NextPuzzleResponse = {
   error?: string;
 };
 
-export function WordChainsApp() {
+type PuzzleResponse = {
+  puzzle: Puzzle | null;
+  error?: string;
+};
+
+export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } = {}) {
   const [userId] = useState(() => {
     if (typeof window === "undefined") return "";
     const stored = localStorage.getItem(STORAGE_USER_ID);
@@ -809,6 +814,16 @@ export function WordChainsApp() {
     return payload.puzzle;
   };
 
+  const fetchPuzzleById = async (id: number) => {
+    const response = await fetch(`/api/puzzle/${id}`);
+    if (!response.ok) {
+      const payload = (await response.json()) as PuzzleResponse;
+      throw new Error(payload?.error || "Unable to load puzzle.");
+    }
+    const payload = (await response.json()) as PuzzleResponse;
+    return payload.puzzle;
+  };
+
   useEffect(() => {
     if (!userId) return;
     localStorage.setItem(STORAGE_USER_ID, userId);
@@ -827,10 +842,12 @@ export function WordChainsApp() {
           const payload = await userResponse.json();
           throw new Error(payload?.error || "Unable to register user.");
         }
-        const puzzle = await fetchNextPuzzle(userId);
+        const puzzle = initialPuzzleId
+          ? await fetchPuzzleById(initialPuzzleId)
+          : await fetchNextPuzzle(userId);
         if (!isMounted) return;
         setCurrentPuzzle(puzzle);
-        setHasNextPuzzle(null);
+        setHasNextPuzzle(initialPuzzleId ? false : null);
         setStatus(puzzle ? "ready" : "empty");
       } catch (error) {
         if (!isMounted) return;
@@ -844,7 +861,7 @@ export function WordChainsApp() {
     return () => {
       isMounted = false;
     };
-  }, [userId]);
+  }, [userId, initialPuzzleId]);
 
   const handlePuzzleComplete = async ({
     puzzleRowId,
@@ -868,6 +885,11 @@ export function WordChainsApp() {
       if (!response.ok) {
         const payload = await response.json();
         throw new Error(payload?.error || "Unable to save progress.");
+      }
+      if (initialPuzzleId) {
+        setHasNextPuzzle(false);
+        setQueuedPuzzle(null);
+        return;
       }
       setHasNextPuzzle(null);
       const nextPuzzle = await fetchNextPuzzle(userId);
