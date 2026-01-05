@@ -40,6 +40,14 @@ const createUserId = () => {
   return `user_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 };
 
+const getLocalDateKey = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export function WordChainsGame({
   puzzle,
   userId,
@@ -572,7 +580,11 @@ export function WordChainsGame({
               >
                 Share
               </button>
-              {hasNextPuzzle === null ? (
+              {puzzle.mode === "daily" ? (
+                <div className="text-sm text-slate-600">
+                  New puzzle drops tomorrow.
+                </div>
+              ) : hasNextPuzzle === null ? (
                 <div className="text-sm text-slate-600">
                   Checking for next puzzle...
                 </div>
@@ -792,6 +804,7 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
     const stored = localStorage.getItem(STORAGE_USER_ID);
     return stored ?? createUserId();
   });
+  const [dailyKey] = useState(() => getLocalDateKey());
   const [currentPuzzle, setCurrentPuzzle] = useState<Puzzle | null>(null);
   const [queuedPuzzle, setQueuedPuzzle] = useState<Puzzle | null>(null);
   const [hasNextPuzzle, setHasNextPuzzle] = useState<boolean | null>(null);
@@ -800,11 +813,11 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchNextPuzzle = async (id: string) => {
+  const fetchNextPuzzle = async (id: string, localDate?: string) => {
     const response = await fetch("/api/next-puzzle", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: id }),
+      body: JSON.stringify({ user_id: id, local_date: localDate }),
     });
     if (!response.ok) {
       const payload = (await response.json()) as NextPuzzleResponse;
@@ -844,10 +857,10 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
         }
         const puzzle = initialPuzzleId
           ? await fetchPuzzleById(initialPuzzleId)
-          : await fetchNextPuzzle(userId);
+          : await fetchNextPuzzle(userId, dailyKey);
         if (!isMounted) return;
         setCurrentPuzzle(puzzle);
-        setHasNextPuzzle(initialPuzzleId ? false : null);
+        setHasNextPuzzle(false);
         setStatus(puzzle ? "ready" : "empty");
       } catch (error) {
         if (!isMounted) return;
@@ -861,7 +874,7 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
     return () => {
       isMounted = false;
     };
-  }, [userId, initialPuzzleId]);
+  }, [userId, initialPuzzleId, dailyKey]);
 
   const handlePuzzleComplete = async ({
     puzzleRowId,
@@ -886,7 +899,7 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
         const payload = await response.json();
         throw new Error(payload?.error || "Unable to save progress.");
       }
-      if (initialPuzzleId) {
+      if (initialPuzzleId || currentPuzzle?.mode === "daily") {
         setHasNextPuzzle(false);
         setQueuedPuzzle(null);
         return;
