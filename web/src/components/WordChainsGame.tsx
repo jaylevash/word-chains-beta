@@ -128,6 +128,12 @@ export function WordChainsGame({
     if (typeof window === "undefined") return "";
     return localStorage.getItem(STORAGE_USER_NAME) ?? "";
   });
+  const [showBugModal, setShowBugModal] = useState(false);
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+  const [bugText, setBugText] = useState("");
+  const [suggestionText, setSuggestionText] = useState("");
+  const [bugSaving, setBugSaving] = useState(false);
+  const [suggestionSaving, setSuggestionSaving] = useState(false);
   const [feedbackSaved, setFeedbackSaved] = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
@@ -429,6 +435,74 @@ export function WordChainsGame({
     }
   };
 
+  const saveBugReport = async () => {
+    if (bugSaving || !bugText.trim()) return;
+    if (!userId) {
+      setStatusNote("Missing user id.");
+      return;
+    }
+    setBugSaving(true);
+    try {
+      const response = await fetch("/api/bugs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          user_name: name.trim() || null,
+          report: bugText.trim(),
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload?.error || "Unable to submit report.");
+      }
+      trackEvent("bug_submit", { has_name: Boolean(name.trim()) });
+      setBugText("");
+      setShowBugModal(false);
+      setStatusNote("Bug report sent. Thank you!");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to submit report.";
+      setStatusNote(message);
+    } finally {
+      setBugSaving(false);
+    }
+  };
+
+  const saveSuggestion = async () => {
+    if (suggestionSaving || !suggestionText.trim()) return;
+    if (!userId) {
+      setStatusNote("Missing user id.");
+      return;
+    }
+    setSuggestionSaving(true);
+    try {
+      const response = await fetch("/api/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          user_name: name.trim() || null,
+          suggestion: suggestionText.trim(),
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload?.error || "Unable to submit suggestion.");
+      }
+      trackEvent("suggestion_submit", { has_name: Boolean(name.trim()) });
+      setSuggestionText("");
+      setShowSuggestionModal(false);
+      setStatusNote("Suggestion submitted. Thank you!");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to submit suggestion.";
+      setStatusNote(message);
+    } finally {
+      setSuggestionSaving(false);
+    }
+  };
+
   const bankTileState = bankWords.map((word) => {
     const usedInAttempt = activeAttemptSlots.includes(word);
     return {
@@ -667,24 +741,29 @@ export function WordChainsGame({
           </div>
         </section>
         <footer className="flex w-full flex-wrap items-center justify-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <a
-            href="/privacy"
-            className="transition hover:text-slate-700"
-          >
+          <a href="/privacy" className="transition hover:text-slate-700">
             Privacy
           </a>
-          <a
-            href={`mailto:feedback@wordchains.io?subject=Word%20Chains%20Bug%20Report`}
+          <button
+            type="button"
+            onClick={() => {
+              trackEvent("bug_open");
+              setShowBugModal(true);
+            }}
             className="transition hover:text-slate-700"
           >
             Report a bug
-          </a>
-          <a
-            href={`mailto:chains@wordchains.io?subject=Word%20Chains%20Puzzle%20Idea`}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              trackEvent("suggestion_open");
+              setShowSuggestionModal(true);
+            }}
             className="transition hover:text-slate-700"
           >
             Suggest a chain
-          </a>
+          </button>
         </footer>
       </main>
 
@@ -822,18 +901,26 @@ export function WordChainsGame({
                       Saved
                     </span>
                   ) : null}
-                  <a
-                    href={`mailto:feedback@wordchains.io?subject=Word%20Chains%20Bug%20Report`}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      trackEvent("bug_open");
+                      setShowBugModal(true);
+                    }}
                     className="text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
                   >
                     Report a bug
-                  </a>
-                  <a
-                    href={`mailto:chains@wordchains.io?subject=Word%20Chains%20Puzzle%20Idea`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      trackEvent("suggestion_open");
+                      setShowSuggestionModal(true);
+                    }}
                     className="text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
                   >
                     Suggest a chain
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -989,6 +1076,120 @@ export function WordChainsGame({
             </div>
             <div className="mt-4 text-xs text-slate-500">
               Streak counts consecutive days played.
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showBugModal ? (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+                  Report a bug
+                </p>
+                <h3 className="text-2xl font-semibold text-slate-900">
+                  Word Chains
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBugModal(false)}
+                aria-label="Close bug report"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <label className="text-xs font-semibold text-slate-600">
+                What happened?
+                <textarea
+                  value={bugText}
+                  onChange={(event) => setBugText(event.target.value)}
+                  className="mt-1 min-h-[120px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  placeholder="Tell us what went wrong..."
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBugModal(false)}
+                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-400"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveBugReport}
+                disabled={bugSaving || !bugText.trim()}
+                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition ${
+                  bugSaving || !bugText.trim()
+                    ? "cursor-not-allowed bg-amber-200"
+                    : "bg-amber-500 hover:bg-amber-600"
+                }`}
+              >
+                {bugSaving ? "Sending..." : "Send report"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showSuggestionModal ? (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+                  Suggest a chain
+                </p>
+                <h3 className="text-2xl font-semibold text-slate-900">
+                  Word Chains
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSuggestionModal(false)}
+                aria-label="Close suggestion"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <label className="text-xs font-semibold text-slate-600">
+                Your chain idea
+                <textarea
+                  value={suggestionText}
+                  onChange={(event) => setSuggestionText(event.target.value)}
+                  className="mt-1 min-h-[120px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  placeholder="Example: Key → Chain → Reaction → Time..."
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSuggestionModal(false)}
+                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-400"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveSuggestion}
+                disabled={suggestionSaving || !suggestionText.trim()}
+                className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition ${
+                  suggestionSaving || !suggestionText.trim()
+                    ? "cursor-not-allowed bg-amber-200"
+                    : "bg-amber-500 hover:bg-amber-600"
+                }`}
+              >
+                {suggestionSaving ? "Sending..." : "Send suggestion"}
+              </button>
             </div>
           </div>
         </div>
