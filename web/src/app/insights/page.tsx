@@ -4,13 +4,11 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 
 type PuzzleRow = {
   id: number;
-  puzzle_id: string | null;
   difficulty: string | null;
 };
 
 type PlayRow = {
   puzzle_row_id: number | null;
-  puzzle_id: string | null;
   result: string | null;
   attempts: number | null;
   duration_seconds: number | null;
@@ -19,7 +17,6 @@ type PlayRow = {
 
 type FeedbackRow = {
   puzzle_row_id: number | null;
-  puzzle_id: string | null;
   difficulty_rating: number | null;
   creativity_rating: number | null;
   comment: string | null;
@@ -92,17 +89,17 @@ export default async function InsightsPage({
   const [puzzleRes, playsRes, feedbackRes] = await Promise.all([
     supabaseAdmin
       .from("puzzles")
-      .select("id, puzzle_id, difficulty")
+      .select("id, difficulty")
       .order("id", { ascending: true }),
     supabaseAdmin
       .from("plays")
       .select(
-        "puzzle_row_id, puzzle_id, result, attempts, duration_seconds, played_at"
+        "puzzle_row_id, result, attempts, duration_seconds, played_at"
       ),
     supabaseAdmin
       .from("feedback")
       .select(
-        "puzzle_row_id, puzzle_id, difficulty_rating, creativity_rating, comment, user_name, submitted_at"
+        "puzzle_row_id, difficulty_rating, creativity_rating, comment, user_name, submitted_at"
       ),
   ]);
 
@@ -133,12 +130,8 @@ export default async function InsightsPage({
   const feedback = (feedbackRes.data ?? []) as FeedbackRow[];
 
   const puzzleById = new Map<number, PuzzleRow>();
-  const puzzleByLegacyId = new Map<string, PuzzleRow>();
   puzzles.forEach((puzzle) => {
     puzzleById.set(Number(puzzle.id), puzzle);
-    if (puzzle.puzzle_id) {
-      puzzleByLegacyId.set(puzzle.puzzle_id, puzzle);
-    }
   });
 
   const aggregates = new Map<number, Aggregates>();
@@ -173,15 +166,8 @@ export default async function InsightsPage({
     return dailyAggregates.get(key)!;
   };
 
-  const resolvePuzzleId = (row: {
-    puzzle_row_id: number | null;
-    puzzle_id: string | null;
-  }) => {
+  const resolvePuzzleId = (row: { puzzle_row_id: number | null }) => {
     if (row.puzzle_row_id != null) return Number(row.puzzle_row_id);
-    if (row.puzzle_id) {
-      const legacy = puzzleByLegacyId.get(row.puzzle_id);
-      if (legacy) return Number(legacy.id);
-    }
     return null;
   };
 
@@ -289,7 +275,6 @@ export default async function InsightsPage({
               agg && agg.feedbackCount > 0
                 ? agg.difficultySum / agg.feedbackCount
                 : null;
-            const label = puzzle.puzzle_id ?? String(puzzle.id);
             const comments = agg?.comments.slice(-2) ?? [];
 
             return (
@@ -299,7 +284,7 @@ export default async function InsightsPage({
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <div className="text-lg font-semibold">Puzzle #{label}</div>
+                    <div className="text-lg font-semibold">Puzzle #{puzzle.id}</div>
                     <div className="text-xs uppercase tracking-wide text-slate-500">
                       {puzzle.difficulty ?? "Unlabeled"}
                     </div>

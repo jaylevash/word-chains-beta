@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 export default async function ArchivePage() {
   const { data: puzzles, error } = await supabaseAdmin
     .from("puzzles")
-    .select("id, puzzle_id, difficulty")
+    .select("id, difficulty")
     .order("id", { ascending: true });
 
   if (error) {
@@ -38,16 +38,14 @@ export default async function ArchivePage() {
 
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
           <ul className="divide-y divide-slate-100">
-            {(puzzles ?? []).map((puzzle) => {
-              const label = puzzle.puzzle_id ?? String(puzzle.id);
-              return (
+            {(puzzles ?? []).map((puzzle) => (
               <li
                 key={puzzle.id}
                 className="flex items-center justify-between py-3"
               >
                 <div>
                   <div className="text-sm font-semibold">
-                    Word Chains #{label}
+                    Word Chains #{puzzle.id}
                   </div>
                   <div className="text-xs uppercase tracking-wide text-slate-500">
                     {puzzle.difficulty ?? "Unlabeled"}
@@ -60,8 +58,7 @@ export default async function ArchivePage() {
                   Play
                 </Link>
               </li>
-              );
-            })}
+            ))}
           </ul>
         </div>
       </div>

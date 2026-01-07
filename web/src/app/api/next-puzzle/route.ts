@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
 
 type DbPuzzle = {
   id: number;
-  puzzle_id: string | null;
   difficulty: "GREEN" | "BLUE" | "PURPLE";
   word_1: string;
   word_2: string;
@@ -35,7 +34,6 @@ type DbPuzzle = {
 
 type PlayRow = {
   puzzle_row_id: number | null;
-  puzzle_id: string | null;
 };
 
 const dayIndexFromKey = (dateKey: string) => {
@@ -46,11 +44,21 @@ const dayIndexFromKey = (dateKey: string) => {
   return Math.floor(utc / 86400000);
 };
 
-const mapPuzzle = (row: DbPuzzle) => {
+const dayNumberFromKey = (dateKey: string) => {
+  const dayIndex = dayIndexFromKey(dateKey);
+  if (dayIndex == null) return null;
+  const launchKey = process.env.DAILY_LAUNCH_DATE?.trim();
+  if (!launchKey) return null;
+  const launchIndex = dayIndexFromKey(launchKey);
+  if (launchIndex == null) return null;
+  return Math.max(1, dayIndex - launchIndex + 1);
+};
+
+const mapPuzzle = (row: DbPuzzle, puzzleNumberOverride?: number | null) => {
   const rowId = Number(row.id);
   return {
     id: String(rowId),
-    puzzleNumber: rowId,
+    puzzleNumber: puzzleNumberOverride ?? rowId,
     mode: "daily" as const,
     difficulty: row.difficulty,
     words_1_to_8: [
@@ -119,20 +127,21 @@ export async function POST(request: Request) {
   if (typeof local_date === "string" && local_date.trim()) {
     const dateKey = local_date.trim();
     const dayIndex = dayIndexFromKey(dateKey);
+    const dayNumber = dayNumberFromKey(dateKey);
     const puzzleList = puzzles ?? [];
     const daily =
       dayIndex == null || puzzleList.length === 0
         ? (seededShuffle(puzzleList, dateKey)[0] as DbPuzzle | undefined)
         : (puzzleList[dayIndex % puzzleList.length] as DbPuzzle | undefined);
     return NextResponse.json({
-      puzzle: daily ? mapPuzzle(daily) : null,
+      puzzle: daily ? mapPuzzle(daily, dayNumber) : null,
       has_next: false,
     });
   }
 
   const { data: plays, error: playsError } = await supabaseAdmin
     .from("plays")
-    .select("puzzle_row_id, puzzle_id")
+    .select("puzzle_row_id")
     .eq("user_id", user_id);
 
   if (playsError) {
@@ -143,13 +152,6 @@ export async function POST(request: Request) {
   (plays as PlayRow[] | null)?.forEach((row) => {
     if (row.puzzle_row_id != null) {
       playedIds.add(Number(row.puzzle_row_id));
-      return;
-    }
-    if (row.puzzle_id) {
-      const parsed = Number.parseInt(row.puzzle_id, 10);
-      if (!Number.isNaN(parsed)) {
-        playedIds.add(parsed);
-      }
     }
   });
 

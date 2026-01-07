@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic";
 
 type DbPuzzle = {
   id: number;
-  puzzle_id: string | null;
   difficulty: "GREEN" | "BLUE" | "PURPLE";
   word_1: string;
   word_2: string;
@@ -27,19 +26,9 @@ type DbPuzzle = {
   dummy_10: string;
 };
 
-const resolvePuzzleNumber = (row: DbPuzzle) => {
-  if (row.puzzle_id) {
-    const parsed = Number.parseInt(row.puzzle_id, 10);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return Number(row.id);
-};
-
 const mapPuzzle = (row: DbPuzzle) => ({
   id: String(row.id),
-  puzzleNumber: resolvePuzzleNumber(row),
+  puzzleNumber: Number(row.id),
   mode: "archive" as const,
   difficulty: row.difficulty,
   words_1_to_8: [

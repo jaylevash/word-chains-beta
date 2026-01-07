@@ -85,7 +85,7 @@ const run = async () => {
     const chainWords = wordKeys.map((key) => row[key]);
     const dummyWords = dummyKeys.map((key) => row[key]);
     const qaLinks = qaKeys.map((key) => row[key]);
-    const idLabel = row.puzzle_id || row.id;
+    const idLabel = row.id;
 
     const missing = chainWords.filter((word) => !isNonEmpty(word));
     if (missing.length) {

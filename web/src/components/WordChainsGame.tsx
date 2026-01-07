@@ -1727,6 +1727,7 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
           result,
           attempts,
           duration_seconds: durationSeconds,
+          local_date: getLocalDateKey(),
         }),
       });
       if (!response.ok) {

@@ -12,6 +12,7 @@ type PlayRow = {
   result: string | null;
   attempts: number | null;
   played_at: string | null;
+  local_date: string | null;
 };
 
 export async function POST(request: Request) {
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("plays")
-    .select("result, attempts, played_at")
+    .select("result, attempts, played_at, local_date")
     .eq("puzzle_row_id", puzzleRowId);
 
   if (error) {
@@ -60,13 +61,6 @@ export async function POST(request: Request) {
   }
 
   const counts = { "1": 0, "2": 0, "3": 0, "4": 0, loss: 0 };
-  const normalizeDateKey = (value: string | null) => {
-    if (!value) return null;
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return parsed.toISOString().slice(0, 10);
-  };
-
   const targetDate =
     typeof local_date === "string" && local_date.trim()
       ? local_date.trim()
@@ -74,7 +68,7 @@ export async function POST(request: Request) {
 
   (data as PlayRow[] | null)?.forEach((row) => {
     if (targetDate) {
-      const playedKey = normalizeDateKey(row.played_at);
+      const playedKey = row.local_date?.trim() || null;
       if (!playedKey || playedKey !== targetDate) {
         return;
       }

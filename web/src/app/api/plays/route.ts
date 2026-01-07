@@ -28,13 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const { user_id, puzzle_row_id, result, attempts, duration_seconds } =
+  const { user_id, puzzle_row_id, result, attempts, duration_seconds, local_date } =
     payload as {
       user_id?: string;
       puzzle_row_id?: number | string;
       result?: string;
       attempts?: number | string;
       duration_seconds?: number | string | null;
+      local_date?: string;
     };
 
   if (!user_id || !puzzle_row_id || !result || !attempts) {
@@ -64,6 +65,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid duration" }, { status: 400 });
   }
 
+  const localDateValue =
+    typeof local_date === "string" && local_date.trim()
+      ? local_date.trim()
+      : null;
+
   const { error } = await supabaseAdmin
     .from("plays")
     .upsert(
@@ -73,6 +79,7 @@ export async function POST(request: Request) {
         result,
         attempts: attemptsValue,
         duration_seconds: durationValue ?? null,
+        local_date: localDateValue,
         played_at: new Date().toISOString(),
       },
       { onConflict: "user_id,puzzle_row_id" }
