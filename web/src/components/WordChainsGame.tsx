@@ -947,8 +947,11 @@ export function WordChainsGame({
             })}
           </div>
         </section>
-        <footer className="flex w-full flex-wrap items-center justify-center gap-5 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:gap-6">
-          <a href="/privacy" className="transition hover:text-slate-700">
+        <footer className="grid w-full grid-cols-3 items-center px-2 text-xs font-semibold text-slate-500 sm:px-4">
+          <a
+            href="/privacy"
+            className="justify-self-start transition hover:text-slate-700"
+          >
             Privacy
           </a>
           <button
@@ -957,7 +960,7 @@ export function WordChainsGame({
               trackEvent("bug_open");
               setShowBugModal(true);
             }}
-            className="transition hover:text-slate-700"
+            className="justify-self-center transition hover:text-slate-700"
           >
             Report a bug
           </button>
@@ -967,7 +970,7 @@ export function WordChainsGame({
               trackEvent("suggestion_open");
               setShowSuggestionModal(true);
             }}
-            className="transition hover:text-slate-700"
+            className="justify-self-end transition hover:text-slate-700"
           >
             Suggest a chain
           </button>
