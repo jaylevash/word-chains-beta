@@ -19,6 +19,7 @@ const STORAGE_USER_ID = "wordchains:user-id:v1";
 const STORAGE_USER_NAME = "wordchains:user-name:v1";
 const STORAGE_STATS = "wordchains:stats:v1";
 const STORAGE_STATS_LEGACY = "splice:stats:v1";
+const STORAGE_ENTRY_SEEN = "wordchains:entry-seen:v1";
 
 type StatsState = {
   totalPlayed: number;
@@ -206,6 +207,10 @@ export function WordChainsGame({
   });
   const [showBugModal, setShowBugModal] = useState(false);
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+  const [showEntry, setShowEntry] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !localStorage.getItem(STORAGE_ENTRY_SEEN);
+  });
   const [bugText, setBugText] = useState("");
   const [suggestionWords, setSuggestionWords] = useState(() =>
     buildEmptySuggestion()
@@ -255,6 +260,12 @@ export function WordChainsGame({
     () => setShowSuggestionModal(false),
     []
   );
+  const closeEntry = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_ENTRY_SEEN, "1");
+    }
+    setShowEntry(false);
+  }, []);
   const closeStats = useCallback(() => {
     onCloseStats?.();
   }, [onCloseStats]);
@@ -269,6 +280,7 @@ export function WordChainsGame({
     showSuggestionModal,
     closeSuggestionModal
   );
+  const entryModalRef = useModalFocus(showEntry, closeEntry);
 
   const activeAttemptSlots = attempts[currentAttempt] ?? attempts[0];
   const activeEditableFilled = editableSlots.every(
@@ -904,6 +916,57 @@ export function WordChainsGame({
           </button>
         </footer>
       </main>
+
+      {showEntry ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 px-4">
+          <div
+            ref={entryModalRef}
+            tabIndex={-1}
+            className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="entry-title"
+            aria-describedby="entry-desc"
+          >
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+              Daily word-link puzzle
+            </p>
+            <h2
+              id="entry-title"
+              className="mt-2 text-3xl font-semibold text-slate-900"
+            >
+              Word Chains
+            </h2>
+            <p id="entry-desc" className="mt-2 text-sm text-slate-600">
+              Connect the chain by filling the six missing words. New puzzle
+              every day.
+            </p>
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  trackEvent("entry_play");
+                  closeEntry();
+                }}
+                className="w-full rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold uppercase tracking-wide text-amber-50 transition hover:bg-slate-800"
+              >
+                Play today’s puzzle
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  closeEntry();
+                  trackEvent("help_open");
+                  setShowHelp(true);
+                }}
+                className="text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
+              >
+                How to play
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {showResultsModal ? (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 px-4">
