@@ -14,6 +14,7 @@ type PlayRow = {
   result: string | null;
   attempts: number | null;
   duration_seconds: number | null;
+  played_at: string | null;
 };
 
 type FeedbackRow = {
@@ -37,6 +38,15 @@ type Aggregates = {
   comments: Array<{ name: string; comment: string }>;
 };
 
+type DailyAggregate = {
+  plays: number;
+  wins: number;
+  attemptsSum: number;
+  secondsSum: number;
+  feedbackCount: number;
+  ratingSum: number;
+};
+
 const formatDuration = (seconds: number | null) => {
   if (!seconds || seconds <= 0) return "—";
   const mins = Math.floor(seconds / 60);
@@ -47,6 +57,25 @@ const formatDuration = (seconds: number | null) => {
 const formatNumber = (value: number | null) => {
   if (value == null || Number.isNaN(value)) return "—";
   return value.toFixed(1);
+};
+
+const dateKeyFromTimestamp = (value: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
+};
+
+const getLastSevenDays = () => {
+  const today = new Date();
+  const base = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  );
+  return Array.from({ length: 7 }, (_, idx) => {
+    const date = new Date(base);
+    date.setUTCDate(base.getUTCDate() - (6 - idx));
+    return date.toISOString().slice(0, 10);
+  });
 };
 
 export default async function InsightsPage({
@@ -67,7 +96,9 @@ export default async function InsightsPage({
       .order("id", { ascending: true }),
     supabaseAdmin
       .from("plays")
-      .select("puzzle_row_id, puzzle_id, result, attempts, duration_seconds"),
+      .select(
+        "puzzle_row_id, puzzle_id, result, attempts, duration_seconds, played_at"
+      ),
     supabaseAdmin
       .from("feedback")
       .select(
@@ -111,6 +142,7 @@ export default async function InsightsPage({
   });
 
   const aggregates = new Map<number, Aggregates>();
+  const dailyAggregates = new Map<string, DailyAggregate>();
   const ensureAgg = (id: number) => {
     if (!aggregates.has(id)) {
       aggregates.set(id, {
@@ -125,6 +157,20 @@ export default async function InsightsPage({
       });
     }
     return aggregates.get(id)!;
+  };
+
+  const ensureDaily = (key: string) => {
+    if (!dailyAggregates.has(key)) {
+      dailyAggregates.set(key, {
+        plays: 0,
+        wins: 0,
+        attemptsSum: 0,
+        secondsSum: 0,
+        feedbackCount: 0,
+        ratingSum: 0,
+      });
+    }
+    return dailyAggregates.get(key)!;
   };
 
   const resolvePuzzleId = (row: {
@@ -147,6 +193,15 @@ export default async function InsightsPage({
     if (row.result === "win") agg.wins += 1;
     agg.attemptsSum += row.attempts ?? 0;
     agg.secondsSum += row.duration_seconds ?? 0;
+
+    const dayKey = dateKeyFromTimestamp(row.played_at);
+    if (dayKey) {
+      const daily = ensureDaily(dayKey);
+      daily.plays += 1;
+      if (row.result === "win") daily.wins += 1;
+      daily.attemptsSum += row.attempts ?? 0;
+      daily.secondsSum += row.duration_seconds ?? 0;
+    }
   });
 
   feedback.forEach((row) => {
@@ -160,6 +215,43 @@ export default async function InsightsPage({
       const name = row.user_name?.trim() || "Anonymous";
       agg.comments.push({ name, comment: row.comment.trim() });
     }
+
+    const dayKey = dateKeyFromTimestamp(row.submitted_at);
+    if (dayKey) {
+      const daily = ensureDaily(dayKey);
+      daily.feedbackCount += 1;
+      daily.ratingSum += row.difficulty_rating ?? 0;
+    }
+  });
+
+  const dailyKeys = getLastSevenDays();
+  const dailyRows = dailyKeys.map((key) => {
+    const daily = dailyAggregates.get(key) ?? {
+      plays: 0,
+      wins: 0,
+      attemptsSum: 0,
+      secondsSum: 0,
+      feedbackCount: 0,
+      ratingSum: 0,
+    };
+    const winRate =
+      daily.plays > 0 ? Math.round((daily.wins / daily.plays) * 100) : null;
+    const avgAttempts =
+      daily.plays > 0 ? daily.attemptsSum / daily.plays : null;
+    const avgSeconds =
+      daily.plays > 0 ? Math.round(daily.secondsSum / daily.plays) : null;
+    const avgRating =
+      daily.feedbackCount > 0
+        ? daily.ratingSum / daily.feedbackCount
+        : null;
+    return {
+      key,
+      plays: daily.plays,
+      winRate,
+      avgAttempts,
+      avgSeconds,
+      avgRating,
+    };
   });
 
   return (
@@ -193,13 +285,9 @@ export default async function InsightsPage({
               playsCount > 0 ? agg!.attemptsSum / playsCount : null;
             const avgSeconds =
               playsCount > 0 ? Math.round(agg!.secondsSum / playsCount) : null;
-            const avgDifficulty =
+            const avgRating =
               agg && agg.feedbackCount > 0
                 ? agg.difficultySum / agg.feedbackCount
-                : null;
-            const avgLogicalness =
-              agg && agg.feedbackCount > 0
-                ? agg.logicalnessSum / agg.feedbackCount
                 : null;
             const label = puzzle.puzzle_id ?? String(puzzle.id);
             const comments = agg?.comments.slice(-2) ?? [];
@@ -255,18 +343,10 @@ export default async function InsightsPage({
                   </div>
                   <div className="rounded-lg bg-slate-50 px-3 py-2">
                     <div className="text-xs uppercase text-slate-500">
-                      Difficulty
+                      Rating
                     </div>
                     <div className="text-lg font-semibold">
-                      {formatNumber(avgDifficulty)}
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-slate-50 px-3 py-2">
-                    <div className="text-xs uppercase text-slate-500">
-                      Logicalness
-                    </div>
-                    <div className="text-lg font-semibold">
-                      {formatNumber(avgLogicalness)}
+                      {formatNumber(avgRating)}
                     </div>
                   </div>
                 </div>
@@ -296,6 +376,49 @@ export default async function InsightsPage({
             );
           })}
         </div>
+
+        <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Daily Snapshot (UTC)
+              </div>
+              <div className="text-lg font-semibold text-slate-900">
+                Last 7 days
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm text-slate-700">
+              <thead className="text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="py-2 pr-4">Date</th>
+                  <th className="py-2 pr-4">Plays</th>
+                  <th className="py-2 pr-4">Win Rate</th>
+                  <th className="py-2 pr-4">Avg Attempts</th>
+                  <th className="py-2 pr-4">Avg Time</th>
+                  <th className="py-2 pr-4">Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyRows.map((row) => (
+                  <tr key={row.key} className="border-t border-slate-100">
+                    <td className="py-2 pr-4 font-medium text-slate-900">
+                      {row.key}
+                    </td>
+                    <td className="py-2 pr-4">{row.plays}</td>
+                    <td className="py-2 pr-4">
+                      {row.winRate == null ? "—" : `${row.winRate}%`}
+                    </td>
+                    <td className="py-2 pr-4">{formatNumber(row.avgAttempts)}</td>
+                    <td className="py-2 pr-4">{formatDuration(row.avgSeconds)}</td>
+                    <td className="py-2 pr-4">{formatNumber(row.avgRating)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );
