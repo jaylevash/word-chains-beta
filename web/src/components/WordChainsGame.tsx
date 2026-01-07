@@ -122,8 +122,7 @@ export function WordChainsGame({
   showStats?: boolean;
   stats?: StatsState;
 }) {
-  const [difficultyRating, setDifficultyRating] = useState(5);
-  const [creativityRating, setCreativityRating] = useState(5);
+  const [puzzleRating, setPuzzleRating] = useState(5);
   const [comment, setComment] = useState("");
   const [name, setName] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -401,8 +400,8 @@ export function WordChainsGame({
           user_id: userId,
           user_name: name.trim() || null,
           puzzle_row_id: puzzleRowId,
-          difficulty_rating: difficultyRating,
-          creativity_rating: creativityRating,
+          difficulty_rating: puzzleRating,
+          creativity_rating: puzzleRating,
           comment: comment.trim() || null,
         }),
       });
@@ -413,8 +412,7 @@ export function WordChainsGame({
       trackEvent("feedback_submit", {
         puzzle_id: puzzle.id,
         puzzle_number: puzzle.puzzleNumber,
-        difficulty_rating: difficultyRating,
-        logicalness_rating: creativityRating,
+        puzzle_rating: puzzleRating,
         has_comment: Boolean(comment.trim()),
       });
       if (name.trim()) {
@@ -668,6 +666,26 @@ export function WordChainsGame({
             })}
           </div>
         </section>
+        <footer className="flex w-full flex-wrap items-center justify-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <a
+            href="/privacy"
+            className="transition hover:text-slate-700"
+          >
+            Privacy
+          </a>
+          <a
+            href={`mailto:feedback@wordchains.io?subject=Word%20Chains%20Bug%20Report`}
+            className="transition hover:text-slate-700"
+          >
+            Report a bug
+          </a>
+          <a
+            href={`mailto:chains@wordchains.io?subject=Word%20Chains%20Puzzle%20Idea`}
+            className="transition hover:text-slate-700"
+          >
+            Suggest a chain
+          </a>
+        </footer>
       </main>
 
       {showResultsModal ? (
@@ -757,44 +775,25 @@ export function WordChainsGame({
                     placeholder="Optional"
                   />
                 </label>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <label className="text-xs font-semibold text-slate-600">
-                    Difficulty
-                    <select
-                      value={difficultyRating}
-                      onChange={(event) => {
-                        setDifficultyRating(Number(event.target.value));
-                        if (feedbackSaved) setFeedbackSaved(false);
-                      }}
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-                        <option key={`difficulty-${value}`} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs font-semibold text-slate-600">
-                    Logicalness
-                    <select
-                      value={creativityRating}
-                      onChange={(event) => {
-                        setCreativityRating(Number(event.target.value));
-                        if (feedbackSaved) setFeedbackSaved(false);
-                      }}
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-                        <option key={`creativity-${value}`} value={value}>
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
                 <label className="text-xs font-semibold text-slate-600">
-                  Comments
+                  Puzzle rating (1-10)
+                  <select
+                    value={puzzleRating}
+                    onChange={(event) => {
+                      setPuzzleRating(Number(event.target.value));
+                      if (feedbackSaved) setFeedbackSaved(false);
+                    }}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
+                      <option key={`rating-${value}`} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Comments (optional)
                   <textarea
                     value={comment}
                     onChange={(event) => {
@@ -823,6 +822,18 @@ export function WordChainsGame({
                       Saved
                     </span>
                   ) : null}
+                  <a
+                    href={`mailto:feedback@wordchains.io?subject=Word%20Chains%20Bug%20Report`}
+                    className="text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
+                  >
+                    Report a bug
+                  </a>
+                  <a
+                    href={`mailto:chains@wordchains.io?subject=Word%20Chains%20Puzzle%20Idea`}
+                    className="text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700"
+                  >
+                    Suggest a chain
+                  </a>
                 </div>
               </div>
             </div>
