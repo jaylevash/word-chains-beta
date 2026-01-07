@@ -494,7 +494,14 @@ export function WordChainsGame({
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
-            onClick={onOpenStats}
+            onClick={() => {
+              trackEvent("stats_open", {
+                puzzle_id: puzzle.id,
+                puzzle_number: puzzle.puzzleNumber,
+                mode: puzzle.mode ?? "daily",
+              });
+              onOpenStats?.();
+            }}
             aria-label="View stats"
             className="flex h-7 items-center justify-center rounded-full border border-slate-200 bg-white px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700 sm:h-8 sm:px-3 sm:text-xs"
           >
@@ -502,7 +509,14 @@ export function WordChainsGame({
           </button>
           <button
             type="button"
-            onClick={() => setShowHelp(true)}
+            onClick={() => {
+              trackEvent("help_open", {
+                puzzle_id: puzzle.id,
+                puzzle_number: puzzle.puzzleNumber,
+                mode: puzzle.mode ?? "daily",
+              });
+              setShowHelp(true);
+            }}
             aria-label="How to play"
             className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-semibold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700 sm:h-8 sm:w-8 sm:text-sm"
           >
@@ -1064,10 +1078,20 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
         setCurrentPuzzle(puzzle);
         setHasNextPuzzle(false);
         setStatus(puzzle ? "ready" : "empty");
+        if (initialPuzzleId && puzzle) {
+          trackEvent("archive_play", {
+            puzzle_id: puzzle.id,
+            puzzle_number: puzzle.puzzleNumber,
+          });
+        }
       } catch (error) {
         if (!isMounted) return;
         const message =
           error instanceof Error ? error.message : "Unable to load puzzle.";
+        trackEvent("puzzle_error", {
+          message,
+          location: "initial_load",
+        });
         setErrorMessage(message);
         setStatus("error");
       }
@@ -1141,6 +1165,10 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to save progress.";
+      trackEvent("puzzle_error", {
+        message,
+        location: "save_progress",
+      });
       setErrorMessage(message);
     }
   };
