@@ -35,7 +35,6 @@ export async function POST(request: Request) {
     difficulty_rating,
     creativity_rating,
     comment,
-    user_name,
     bot_trap,
   } = payload as {
     user_id?: string;
@@ -43,7 +42,6 @@ export async function POST(request: Request) {
     difficulty_rating?: number | string;
     creativity_rating?: number | string;
     comment?: string | null;
-    user_name?: string | null;
     bot_trap?: string | null;
   };
 
@@ -76,20 +74,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid rating" }, { status: 400 });
   }
 
-  const trimmedName = clampText(user_name, 50);
-  if (trimmedName) {
-    await supabaseAdmin
-      .from("users")
-      .upsert({ id: user_id, name: trimmedName }, { onConflict: "id" });
-  }
-
   const trimmedComment = clampText(comment, 500);
 
   const { error } = await supabaseAdmin.from("feedback").upsert(
     {
       user_id,
       puzzle_row_id: puzzleRowId,
-      user_name: trimmedName || null,
+      user_name: null,
       difficulty_rating: ratingA,
       creativity_rating: ratingB,
       comment: trimmedComment || null,

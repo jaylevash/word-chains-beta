@@ -16,7 +16,6 @@ type GameResult = "playing" | "win" | "loss";
 const editableSlots = [1, 2, 3, 4, 5, 6];
 const flipDurationMs = 900;
 const STORAGE_USER_ID = "wordchains:user-id:v1";
-const STORAGE_USER_NAME = "wordchains:user-name:v1";
 const STORAGE_STATS = "wordchains:stats:v1";
 const STORAGE_STATS_LEGACY = "splice:stats:v1";
 const STORAGE_ENTRY_SEEN = "wordchains:entry-seen:v1";
@@ -173,6 +172,17 @@ const useModalFocus = (isOpen: boolean, onClose?: () => void) => {
   return containerRef;
 };
 
+type PuzzleStats = {
+  total: number;
+  counts: {
+    "1": number;
+    "2": number;
+    "3": number;
+    "4": number;
+    loss: number;
+  };
+};
+
 export function WordChainsGame({
   puzzle,
   userId,
@@ -201,10 +211,6 @@ export function WordChainsGame({
 }) {
   const [puzzleRating, setPuzzleRating] = useState(5);
   const [comment, setComment] = useState("");
-  const [name, setName] = useState(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem(STORAGE_USER_NAME) ?? "";
-  });
   const [showBugModal, setShowBugModal] = useState(false);
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
   const [showEntry, setShowEntry] = useState(() => {
@@ -255,6 +261,9 @@ export function WordChainsGame({
   const [isAnimating, setIsAnimating] = useState(false);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [puzzleStats, setPuzzleStats] = useState<PuzzleStats | null>(null);
+  const [puzzleStatsError, setPuzzleStatsError] = useState<string | null>(null);
+  const [puzzleStatsLoading, setPuzzleStatsLoading] = useState(false);
   const suggestionComplete = suggestionWords.every((word) => word.trim());
   const closeResults = useCallback(() => setIsResultsOpen(false), []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
@@ -519,7 +528,6 @@ export function WordChainsGame({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          user_name: name.trim() || null,
           puzzle_row_id: puzzleRowId,
           difficulty_rating: puzzleRating,
           creativity_rating: puzzleRating,
@@ -537,9 +545,6 @@ export function WordChainsGame({
         puzzle_rating: puzzleRating,
         has_comment: Boolean(comment.trim()),
       });
-      if (name.trim()) {
-        localStorage.setItem(STORAGE_USER_NAME, name.trim());
-      }
       setFeedbackSaved(true);
       setStatusNote("Feedback saved. Thank you!");
     } catch (error) {
@@ -564,7 +569,6 @@ export function WordChainsGame({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          user_name: name.trim() || null,
           report: bugText.trim(),
           bot_trap: bugTrap,
         }),
@@ -573,7 +577,7 @@ export function WordChainsGame({
         const payload = await response.json();
         throw new Error(payload?.error || "Unable to submit report.");
       }
-      trackEvent("bug_submit", { has_name: Boolean(name.trim()) });
+      trackEvent("bug_submit");
       setBugText("");
       setShowBugModal(false);
       setStatusNote("Bug report sent. Thank you!");
@@ -604,7 +608,6 @@ export function WordChainsGame({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: userId,
-          user_name: name.trim() || null,
           word_1: trimmedWords[0],
           word_2: trimmedWords[1],
           word_3: trimmedWords[2],
@@ -620,10 +623,7 @@ export function WordChainsGame({
         const payload = await response.json();
         throw new Error(payload?.error || "Unable to submit suggestion.");
       }
-      trackEvent("suggestion_submit", {
-        has_name: Boolean(name.trim()),
-        word_count: trimmedWords.length,
-      });
+      trackEvent("suggestion_submit", { word_count: trimmedWords.length });
       setSuggestionWords(buildEmptySuggestion());
       closeSuggestionModal();
       setStatusNote("Suggestion submitted. Thank you!");
@@ -650,6 +650,12 @@ export function WordChainsGame({
   const fixedRevealed = colorsByAttempt.some((attempt) => attempt[0] === "green");
   const showResultsModal = result !== "playing" && isResultsOpen;
   const canAdvance = hasNextPuzzle === true && Boolean(onNextPuzzle);
+  const statsCounts = puzzleStats?.counts ?? null;
+  const statsTotal = puzzleStats?.total ?? 0;
+  const formatPercent = (value: number) => {
+    if (!statsTotal) return "—";
+    return `${Math.round((value / statsTotal) * 100)}%`;
+  };
 
   const successTone =
     "bg-emerald-100 text-emerald-900 border-emerald-500";
@@ -674,10 +680,55 @@ export function WordChainsGame({
   }, [puzzle.id, puzzle.puzzleNumber, puzzle.mode]);
 
   useEffect(() => {
+    setPuzzleStats(null);
+    setPuzzleStatsError(null);
+    setPuzzleStatsLoading(false);
+  }, [puzzle.id]);
+
+  useEffect(() => {
     if (result !== "playing") {
       setIsResultsOpen(true);
     }
   }, [result]);
+
+  useEffect(() => {
+    const shouldFetch = result !== "playing" && puzzleRowId && !puzzleStats;
+    if (!shouldFetch) return;
+    let isActive = true;
+    const loadStats = async () => {
+      setPuzzleStatsLoading(true);
+      setPuzzleStatsError(null);
+      try {
+        const response = await fetch("/api/puzzle-stats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            puzzle_row_id: puzzleRowId,
+            local_date: getLocalDateKey(),
+          }),
+        });
+        if (!response.ok) {
+          const payload = await response.json();
+          throw new Error(payload?.error || "Unable to load puzzle stats.");
+        }
+        const payload = (await response.json()) as PuzzleStats;
+        if (isActive) {
+          setPuzzleStats(payload);
+        }
+      } catch (error) {
+        if (!isActive) return;
+        const message =
+          error instanceof Error ? error.message : "Unable to load puzzle stats.";
+        setPuzzleStatsError(message);
+      } finally {
+        if (isActive) setPuzzleStatsLoading(false);
+      }
+    };
+    void loadStats();
+    return () => {
+      isActive = false;
+    };
+  }, [result, puzzleRowId, puzzleStats]);
 
   useEffect(() => {
     return () => {
@@ -896,7 +947,7 @@ export function WordChainsGame({
             })}
           </div>
         </section>
-        <footer className="flex w-full flex-wrap items-center justify-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <footer className="flex w-full flex-wrap items-center justify-center gap-5 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:gap-6">
           <a href="/privacy" className="transition hover:text-slate-700">
             Privacy
           </a>
@@ -1054,6 +1105,57 @@ export function WordChainsGame({
               </div>
             ) : null}
 
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Community results
+              </div>
+              {puzzleStatsLoading ? (
+                <div className="mt-2 text-xs text-slate-500">
+                  Loading results...
+                </div>
+              ) : puzzleStatsError ? (
+                <div className="mt-2 text-xs text-rose-600">
+                  Unable to load results yet.
+                </div>
+              ) : statsCounts ? (
+                <div className="mt-3 space-y-2 text-xs">
+                  {[
+                    { label: "1 Guess", count: statsCounts["1"] },
+                    { label: "2 Guesses", count: statsCounts["2"] },
+                    { label: "3 Guesses", count: statsCounts["3"] },
+                    { label: "4 Guesses", count: statsCounts["4"] },
+                    { label: "Failed", count: statsCounts.loss },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center gap-3">
+                      <div className="w-20 text-[11px] font-semibold uppercase text-slate-500">
+                        {row.label}
+                      </div>
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-white">
+                        <div
+                          className="h-full rounded-full bg-emerald-400"
+                          style={{
+                            width: statsTotal
+                              ? `${Math.min(100, (row.count / statsTotal) * 100)}%`
+                              : "0%",
+                          }}
+                        />
+                      </div>
+                      <div className="w-12 text-right text-[11px] font-semibold text-slate-600">
+                        {formatPercent(row.count)}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="pt-1 text-[11px] text-slate-500">
+                    Based on {statsTotal} completed plays.
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 text-xs text-slate-500">
+                  No results yet.
+                </div>
+              )}
+            </div>
+
             <div className="mt-5 border-t border-slate-200 pt-4">
               <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                 Feedback
@@ -1068,19 +1170,6 @@ export function WordChainsGame({
                     autoComplete="off"
                     tabIndex={-1}
                     aria-hidden="true"
-                  />
-                </label>
-                <label className="text-xs font-semibold text-slate-600">
-                  Your name
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(event) => {
-                      setName(event.target.value);
-                      if (feedbackSaved) setFeedbackSaved(false);
-                    }}
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                    placeholder="Optional"
                   />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">
@@ -1581,7 +1670,6 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             user_id: userId,
-            name: localStorage.getItem(STORAGE_USER_NAME),
           }),
         });
         if (!userResponse.ok) {
