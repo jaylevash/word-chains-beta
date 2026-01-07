@@ -211,6 +211,9 @@ export function WordChainsGame({
     if (typeof window === "undefined") return true;
     return !localStorage.getItem(STORAGE_ENTRY_SEEN);
   });
+  const [feedbackTrap, setFeedbackTrap] = useState("");
+  const [bugTrap, setBugTrap] = useState("");
+  const [suggestionTrap, setSuggestionTrap] = useState("");
   const [bugText, setBugText] = useState("");
   const [suggestionWords, setSuggestionWords] = useState(() =>
     buildEmptySuggestion()
@@ -521,6 +524,7 @@ export function WordChainsGame({
           difficulty_rating: puzzleRating,
           creativity_rating: puzzleRating,
           comment: comment.trim() || null,
+          bot_trap: feedbackTrap,
         }),
       });
       if (!response.ok) {
@@ -562,6 +566,7 @@ export function WordChainsGame({
           user_id: userId,
           user_name: name.trim() || null,
           report: bugText.trim(),
+          bot_trap: bugTrap,
         }),
       });
       if (!response.ok) {
@@ -608,6 +613,7 @@ export function WordChainsGame({
           word_6: trimmedWords[5],
           word_7: trimmedWords[6],
           word_8: trimmedWords[7],
+          bot_trap: suggestionTrap,
         }),
       });
       if (!response.ok) {
@@ -1053,6 +1059,17 @@ export function WordChainsGame({
                 Feedback
               </h4>
               <div className="mt-3 grid gap-2">
+                <label className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+                  Do not fill
+                  <input
+                    type="text"
+                    value={feedbackTrap}
+                    onChange={(event) => setFeedbackTrap(event.target.value)}
+                    autoComplete="off"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                </label>
                 <label className="text-xs font-semibold text-slate-600">
                   Your name
                   <input
@@ -1342,6 +1359,17 @@ export function WordChainsGame({
               </button>
             </div>
             <div className="mt-4 space-y-3 text-sm text-slate-600">
+              <label className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+                Do not fill
+                <input
+                  type="text"
+                  value={bugTrap}
+                  onChange={(event) => setBugTrap(event.target.value)}
+                  autoComplete="off"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </label>
               <label className="text-xs font-semibold text-slate-600">
                 What happened?
                 <textarea
@@ -1410,6 +1438,17 @@ export function WordChainsGame({
               </button>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-slate-600 sm:grid-cols-4">
+              <label className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+                Do not fill
+                <input
+                  type="text"
+                  value={suggestionTrap}
+                  onChange={(event) => setSuggestionTrap(event.target.value)}
+                  autoComplete="off"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+              </label>
               {suggestionWords.map((value, idx) => (
                 <label
                   key={`suggest-word-${idx}`}

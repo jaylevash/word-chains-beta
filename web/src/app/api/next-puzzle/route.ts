@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { seededShuffle } from "@/lib/game-utils";
+import {
+  enforceJson,
+  enforceOrigin,
+  enforceRateLimit,
+} from "@/lib/request-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +36,14 @@ type DbPuzzle = {
 type PlayRow = {
   puzzle_row_id: number | null;
   puzzle_id: string | null;
+};
+
+const dayIndexFromKey = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-").map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  const utc = Date.UTC(year, month - 1, day);
+  if (Number.isNaN(utc)) return null;
+  return Math.floor(utc / 86400000);
 };
 
 const mapPuzzle = (row: DbPuzzle) => {
@@ -66,10 +79,55 @@ const mapPuzzle = (row: DbPuzzle) => {
 };
 
 export async function POST(request: Request) {
-  const { user_id } = await request.json();
+  const originGuard = enforceOrigin(request);
+  if (originGuard) return originGuard;
+  const jsonGuard = enforceJson(request);
+  if (jsonGuard) return jsonGuard;
+  const rateGuard = await enforceRateLimit({
+    request,
+    key: "next_puzzle",
+    limit: 120,
+    windowSeconds: 3600,
+  });
+  if (rateGuard) return rateGuard;
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  const { user_id, local_date } = payload as {
+    user_id?: string;
+    local_date?: string;
+  };
 
   if (!user_id) {
     return NextResponse.json({ error: "user_id required" }, { status: 400 });
+  }
+
+  const { data: puzzles, error: puzzlesError } = await supabaseAdmin
+    .from("puzzles")
+    .select("*")
+    .order("id", { ascending: true });
+
+  if (puzzlesError) {
+    return NextResponse.json({ error: puzzlesError.message }, { status: 500 });
+  }
+
+  if (typeof local_date === "string" && local_date.trim()) {
+    const dateKey = local_date.trim();
+    const dayIndex = dayIndexFromKey(dateKey);
+    const puzzleList = puzzles ?? [];
+    const daily =
+      dayIndex == null || puzzleList.length === 0
+        ? (seededShuffle(puzzleList, dateKey)[0] as DbPuzzle | undefined)
+        : (puzzleList[dayIndex % puzzleList.length] as DbPuzzle | undefined);
+    return NextResponse.json({
+      puzzle: daily ? mapPuzzle(daily) : null,
+      has_next: false,
+    });
   }
 
   const { data: plays, error: playsError } = await supabaseAdmin
@@ -94,15 +152,6 @@ export async function POST(request: Request) {
       }
     }
   });
-
-  const { data: puzzles, error: puzzlesError } = await supabaseAdmin
-    .from("puzzles")
-    .select("*")
-    .order("id", { ascending: true });
-
-  if (puzzlesError) {
-    return NextResponse.json({ error: puzzlesError.message }, { status: 500 });
-  }
 
   const shuffled = seededShuffle(puzzles ?? [], user_id);
   const next = shuffled.find(

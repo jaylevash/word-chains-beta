@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "validate-puzzles": "node scripts/validate-puzzles.mjs"
   },
   "dependencies": {
+    "@upstash/ratelimit": "^2.0.1",
+    "@upstash/redis": "^1.34.3",
     "@supabase/supabase-js": "^2.89.0",
     "next": "16.1.1",
     "react": "19.2.3",
