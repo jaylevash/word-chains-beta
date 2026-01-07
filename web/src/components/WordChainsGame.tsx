@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Puzzle } from "@/lib/puzzles";
+import { trackEvent } from "@/lib/analytics";
 import {
   TileColor,
   bestColorUpgrade,
@@ -16,6 +17,28 @@ const editableSlots = [1, 2, 3, 4, 5, 6];
 const flipDurationMs = 900;
 const STORAGE_USER_ID = "wordchains:user-id:v1";
 const STORAGE_USER_NAME = "wordchains:user-name:v1";
+const STORAGE_STATS = "wordchains:stats:v1";
+const STORAGE_STATS_LEGACY = "splice:stats:v1";
+
+type StatsState = {
+  totalPlayed: number;
+  totalWins: number;
+  totalAttempts: number;
+  totalSeconds: number;
+  currentStreak: number;
+  maxStreak: number;
+  lastDailyDate: string | null;
+};
+
+const defaultStats: StatsState = {
+  totalPlayed: 0,
+  totalWins: 0,
+  totalAttempts: 0,
+  totalSeconds: 0,
+  currentStreak: 0,
+  maxStreak: 0,
+  lastDailyDate: null,
+};
 
 const buildInitialAttempts = (puzzle: Puzzle) => {
   const base = [
@@ -48,12 +71,41 @@ const getLocalDateKey = () => {
   return `${year}-${month}-${day}`;
 };
 
+const parseStats = (value: string | null): StatsState => {
+  if (!value) return { ...defaultStats };
+  try {
+    const parsed = JSON.parse(value);
+    return {
+      totalPlayed: Number(parsed.totalPlayed) || 0,
+      totalWins: Number(parsed.totalWins) || 0,
+      totalAttempts: Number(parsed.totalAttempts) || 0,
+      totalSeconds: Number(parsed.totalSeconds) || 0,
+      currentStreak: Number(parsed.currentStreak) || 0,
+      maxStreak: Number(parsed.maxStreak) || 0,
+      lastDailyDate:
+        typeof parsed.lastDailyDate === "string" ? parsed.lastDailyDate : null,
+    };
+  } catch {
+    return { ...defaultStats };
+  }
+};
+
+const formatDuration = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+};
+
 export function WordChainsGame({
   puzzle,
   userId,
   hasNextPuzzle = null,
   onNextPuzzle,
   onPuzzleComplete,
+  onOpenStats,
+  onCloseStats,
+  showStats = false,
+  stats,
 }: {
   puzzle: Puzzle;
   userId: string;
@@ -65,6 +117,10 @@ export function WordChainsGame({
     attempts: number;
     durationSeconds: number;
   }) => void;
+  onOpenStats?: () => void;
+  onCloseStats?: () => void;
+  showStats?: boolean;
+  stats?: StatsState;
 }) {
   const [difficultyRating, setDifficultyRating] = useState(5);
   const [creativityRating, setCreativityRating] = useState(5);
@@ -77,6 +133,7 @@ export function WordChainsGame({
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
   const shareTimeoutRef = useRef<number | null>(null);
+  const trackedStartRef = useRef<string | null>(null);
   const puzzleRowId = Number.parseInt(puzzle.id, 10);
   const solution = useMemo(
     () => puzzle.words_1_to_8.slice(1, 7),
@@ -235,6 +292,14 @@ export function WordChainsGame({
 
     if (allGreen) {
       setResult("win");
+      trackEvent("puzzle_complete", {
+        puzzle_id: puzzle.id,
+        puzzle_number: puzzle.puzzleNumber,
+        mode: puzzle.mode ?? "daily",
+        result: "win",
+        attempts: attemptsUsed,
+        duration_seconds: durationSeconds,
+      });
       onPuzzleComplete?.({
         puzzleRowId,
         result: "win",
@@ -246,6 +311,14 @@ export function WordChainsGame({
 
     if (currentAttempt === attempts.length - 1) {
       setResult("loss");
+      trackEvent("puzzle_complete", {
+        puzzle_id: puzzle.id,
+        puzzle_number: puzzle.puzzleNumber,
+        mode: puzzle.mode ?? "daily",
+        result: "loss",
+        attempts: attemptsUsed,
+        duration_seconds: durationSeconds,
+      });
       onPuzzleComplete?.({
         puzzleRowId,
         result: "loss",
@@ -272,6 +345,11 @@ export function WordChainsGame({
             text: shareText,
             url: shareUrl,
           });
+          trackEvent("share", {
+            puzzle_id: puzzle.id,
+            puzzle_number: puzzle.puzzleNumber,
+            method: "share_sheet",
+          });
           setShareMessage("Share sheet opened — send it to a friend!");
           if (shareTimeoutRef.current) {
             window.clearTimeout(shareTimeoutRef.current);
@@ -288,6 +366,11 @@ export function WordChainsGame({
         }
       }
       await navigator.clipboard.writeText(shareText);
+      trackEvent("share", {
+        puzzle_id: puzzle.id,
+        puzzle_number: puzzle.puzzleNumber,
+        method: "clipboard",
+      });
       setStatusNote("Copied results to clipboard.");
       setShareMessage("Copied! Share your chain with friends or family.");
       if (shareTimeoutRef.current) {
@@ -327,6 +410,13 @@ export function WordChainsGame({
         const payload = await response.json();
         throw new Error(payload?.error || "Unable to save feedback.");
       }
+      trackEvent("feedback_submit", {
+        puzzle_id: puzzle.id,
+        puzzle_number: puzzle.puzzleNumber,
+        difficulty_rating: difficultyRating,
+        logicalness_rating: creativityRating,
+        has_comment: Boolean(comment.trim()),
+      });
       if (name.trim()) {
         localStorage.setItem(STORAGE_USER_NAME, name.trim());
       }
@@ -358,6 +448,25 @@ export function WordChainsGame({
 
   const successTone =
     "bg-emerald-100 text-emerald-900 border-emerald-500";
+  const totalPlayed = stats?.totalPlayed ?? 0;
+  const totalWins = stats?.totalWins ?? 0;
+  const winRate = totalPlayed ? Math.round((totalWins / totalPlayed) * 100) : null;
+  const avgAttempts = totalPlayed
+    ? (stats?.totalAttempts ?? 0) / totalPlayed
+    : null;
+  const avgSeconds = totalPlayed
+    ? Math.round((stats?.totalSeconds ?? 0) / totalPlayed)
+    : null;
+
+  useEffect(() => {
+    if (trackedStartRef.current === puzzle.id) return;
+    trackedStartRef.current = puzzle.id;
+    trackEvent("puzzle_start", {
+      puzzle_id: puzzle.id,
+      puzzle_number: puzzle.puzzleNumber,
+      mode: puzzle.mode ?? "daily",
+    });
+  }, [puzzle.id, puzzle.puzzleNumber, puzzle.mode]);
 
   useEffect(() => {
     if (result !== "playing") {
@@ -382,14 +491,24 @@ export function WordChainsGame({
         <h1 className="justify-self-center bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 bg-clip-text text-xl font-semibold text-transparent sm:text-3xl">
           Word Chains
         </h1>
-        <button
-          type="button"
-          onClick={() => setShowHelp(true)}
-          aria-label="How to play"
-          className="justify-self-end flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-semibold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700 sm:h-8 sm:w-8 sm:text-sm"
-        >
-          ?
-        </button>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onOpenStats}
+            aria-label="View stats"
+            className="flex h-7 items-center justify-center rounded-full border border-slate-200 bg-white px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700 sm:h-8 sm:px-3 sm:text-xs"
+          >
+            Stats
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowHelp(true)}
+            aria-label="How to play"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[11px] font-semibold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700 sm:h-8 sm:w-8 sm:text-sm"
+          >
+            ?
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col items-center gap-1.5 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] sm:gap-2 sm:px-6 sm:pb-8">
@@ -774,6 +893,81 @@ export function WordChainsGame({
           </div>
         </div>
       ) : null}
+
+      {showStats ? (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
+                  Stats
+                </p>
+                <h3 className="text-2xl font-semibold text-slate-900">Word Chains</h3>
+              </div>
+              <button
+                type="button"
+                onClick={onCloseStats}
+                aria-label="Close stats"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 text-sm text-slate-700">
+              <div className="rounded-xl bg-slate-50 p-3 text-center">
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  Played
+                </div>
+                <div className="mt-1 text-2xl font-semibold">{totalPlayed}</div>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3 text-center">
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  Wins
+                </div>
+                <div className="mt-1 text-2xl font-semibold">{totalWins}</div>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3 text-center">
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  Win Rate
+                </div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {winRate == null ? "—" : `${winRate}%`}
+                </div>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3 text-center">
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  Avg Attempts
+                </div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {avgAttempts == null ? "—" : avgAttempts.toFixed(1)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3 text-center">
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  Avg Time
+                </div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {avgSeconds == null ? "—" : formatDuration(avgSeconds)}
+                </div>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3 text-center">
+                <div className="text-xs uppercase tracking-wide text-slate-500">
+                  Streak
+                </div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {stats?.currentStreak ?? 0}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  Best {stats?.maxStreak ?? 0}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 text-xs text-slate-500">
+              Streak counts consecutive days played.
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -812,6 +1006,14 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
     "loading"
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [stats, setStats] = useState<StatsState>(() => {
+    if (typeof window === "undefined") return { ...defaultStats };
+    const stored =
+      localStorage.getItem(STORAGE_STATS) ??
+      localStorage.getItem(STORAGE_STATS_LEGACY);
+    return parseStats(stored);
+  });
+  const [showStats, setShowStats] = useState(false);
 
   const fetchNextPuzzle = async (id: string, localDate?: string) => {
     const response = await fetch("/api/next-puzzle", {
@@ -899,6 +1101,34 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
         const payload = await response.json();
         throw new Error(payload?.error || "Unable to save progress.");
       }
+      setStats((prev) => {
+        const next: StatsState = {
+          ...prev,
+          totalPlayed: prev.totalPlayed + 1,
+          totalWins: prev.totalWins + (result === "win" ? 1 : 0),
+          totalAttempts: prev.totalAttempts + attempts,
+          totalSeconds: prev.totalSeconds + durationSeconds,
+        };
+        const todayKey = getLocalDateKey();
+        if (currentPuzzle?.mode === "daily" && prev.lastDailyDate !== todayKey) {
+          if (prev.lastDailyDate) {
+            const lastDate = new Date(`${prev.lastDailyDate}T00:00:00`);
+            const today = new Date(`${todayKey}T00:00:00`);
+            const diffDays = Math.round(
+              (today.getTime() - lastDate.getTime()) / 86400000
+            );
+            next.currentStreak = diffDays === 1 ? prev.currentStreak + 1 : 1;
+          } else {
+            next.currentStreak = 1;
+          }
+          next.maxStreak = Math.max(next.maxStreak, next.currentStreak);
+          next.lastDailyDate = todayKey;
+        }
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_STATS, JSON.stringify(next));
+        }
+        return next;
+      });
       if (initialPuzzleId || currentPuzzle?.mode === "daily") {
         setHasNextPuzzle(false);
         setQueuedPuzzle(null);
@@ -967,6 +1197,10 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
       hasNextPuzzle={hasNextPuzzle}
       onNextPuzzle={handleNextPuzzle}
       onPuzzleComplete={handlePuzzleComplete}
+      showStats={showStats}
+      stats={stats}
+      onOpenStats={() => setShowStats(true)}
+      onCloseStats={() => setShowStats(false)}
     />
   );
 }
