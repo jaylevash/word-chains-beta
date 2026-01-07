@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Puzzle } from "@/lib/puzzles";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -96,6 +96,82 @@ const formatDuration = (seconds: number) => {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 };
 
+const buildEmptySuggestion = () => Array.from({ length: 8 }, () => "");
+
+const focusableSelector = [
+  "a[href]",
+  "area[href]",
+  "button:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+const useModalFocus = (isOpen: boolean, onClose?: () => void) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || typeof document === "undefined") return;
+    const container = containerRef.current;
+    lastFocusedRef.current = document.activeElement as HTMLElement | null;
+
+    const getFocusable = () =>
+      container
+        ? Array.from(
+            container.querySelectorAll<HTMLElement>(focusableSelector)
+          ).filter((el) => !el.hasAttribute("disabled"))
+        : [];
+
+    const focusable = getFocusable();
+    if (focusable.length) {
+      focusable[0].focus();
+    } else if (container) {
+      container.focus();
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose?.();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusables = getFocusable();
+      if (!focusables.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (!active || active === first) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+      if (active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      const lastFocused = lastFocusedRef.current;
+      if (lastFocused && document.contains(lastFocused)) {
+        lastFocused.focus();
+      }
+    };
+  }, [isOpen, onClose]);
+
+  return containerRef;
+};
+
 export function WordChainsGame({
   puzzle,
   userId,
@@ -131,7 +207,9 @@ export function WordChainsGame({
   const [showBugModal, setShowBugModal] = useState(false);
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
   const [bugText, setBugText] = useState("");
-  const [suggestionText, setSuggestionText] = useState("");
+  const [suggestionWords, setSuggestionWords] = useState(() =>
+    buildEmptySuggestion()
+  );
   const [bugSaving, setBugSaving] = useState(false);
   const [suggestionSaving, setSuggestionSaving] = useState(false);
   const [feedbackSaved, setFeedbackSaved] = useState(false);
@@ -169,6 +247,28 @@ export function WordChainsGame({
   const [isAnimating, setIsAnimating] = useState(false);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const suggestionComplete = suggestionWords.every((word) => word.trim());
+  const closeResults = useCallback(() => setIsResultsOpen(false), []);
+  const closeHelp = useCallback(() => setShowHelp(false), []);
+  const closeBugModal = useCallback(() => setShowBugModal(false), []);
+  const closeSuggestionModal = useCallback(
+    () => setShowSuggestionModal(false),
+    []
+  );
+  const closeStats = useCallback(() => {
+    onCloseStats?.();
+  }, [onCloseStats]);
+  const resultsModalRef = useModalFocus(
+    result !== "playing" && isResultsOpen,
+    closeResults
+  );
+  const helpModalRef = useModalFocus(showHelp, closeHelp);
+  const statsModalRef = useModalFocus(showStats, closeStats);
+  const bugModalRef = useModalFocus(showBugModal, closeBugModal);
+  const suggestionModalRef = useModalFocus(
+    showSuggestionModal,
+    closeSuggestionModal
+  );
 
   const activeAttemptSlots = attempts[currentAttempt] ?? attempts[0];
   const activeEditableFilled = editableSlots.every(
@@ -470,7 +570,12 @@ export function WordChainsGame({
   };
 
   const saveSuggestion = async () => {
-    if (suggestionSaving || !suggestionText.trim()) return;
+    const trimmedWords = suggestionWords.map((word) => word.trim());
+    const isComplete = trimmedWords.every(Boolean);
+    if (suggestionSaving || !isComplete) {
+      setStatusNote("Please fill in all 8 words.");
+      return;
+    }
     if (!userId) {
       setStatusNote("Missing user id.");
       return;
@@ -483,16 +588,26 @@ export function WordChainsGame({
         body: JSON.stringify({
           user_id: userId,
           user_name: name.trim() || null,
-          suggestion: suggestionText.trim(),
+          word_1: trimmedWords[0],
+          word_2: trimmedWords[1],
+          word_3: trimmedWords[2],
+          word_4: trimmedWords[3],
+          word_5: trimmedWords[4],
+          word_6: trimmedWords[5],
+          word_7: trimmedWords[6],
+          word_8: trimmedWords[7],
         }),
       });
       if (!response.ok) {
         const payload = await response.json();
         throw new Error(payload?.error || "Unable to submit suggestion.");
       }
-      trackEvent("suggestion_submit", { has_name: Boolean(name.trim()) });
-      setSuggestionText("");
-      setShowSuggestionModal(false);
+      trackEvent("suggestion_submit", {
+        has_name: Boolean(name.trim()),
+        word_count: trimmedWords.length,
+      });
+      setSuggestionWords(buildEmptySuggestion());
+      closeSuggestionModal();
       setStatusNote("Suggestion submitted. Thank you!");
     } catch (error) {
       const message =
@@ -556,6 +671,9 @@ export function WordChainsGame({
 
   return (
     <div className="flex min-h-[100svh] flex-col bg-amber-50 text-slate-900">
+      <div className="sr-only" role="status" aria-live="polite">
+        {statusNote}
+      </div>
       <header className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2 sm:px-6 sm:py-4">
         <div className="justify-self-start text-xs font-semibold text-slate-500 sm:text-sm">
           Puzzle #{puzzle.puzzleNumber}
@@ -659,6 +777,15 @@ export function WordChainsGame({
                         key={slotIdx}
                         type="button"
                         onClick={() => handleSlotClick(slotIdx)}
+                        aria-label={`${displayWord || "Empty"} slot ${slotIdx + 1}${
+                          slotColor !== "blank"
+                            ? slotColor === "green"
+                              ? ", correct"
+                              : slotColor === "yellow"
+                                ? ", wrong spot"
+                                : ", not in chain"
+                            : ""
+                        }`}
                         className={`flex h-[clamp(32px,3.9vh,40px)] items-center justify-center rounded-lg border text-[10px] font-semibold uppercase tracking-wide transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:text-xs ${
                           isSlotActive ? "ring-2 ring-slate-400 ring-offset-2" : ""
                         } ${!isEditable ? "cursor-default" : "cursor-pointer"} ${baseColor}`}
@@ -723,6 +850,14 @@ export function WordChainsGame({
                     : tile.bestColor === "red"
                       ? "bg-rose-100 border-rose-600 text-rose-900"
                       : "bg-slate-50 border-slate-200 text-slate-900";
+              const statusLabel =
+                tile.bestColor === "green"
+                  ? "correct"
+                  : tile.bestColor === "yellow"
+                    ? "wrong spot"
+                    : tile.bestColor === "red"
+                      ? "not in chain"
+                      : "unused";
               const isHeld = heldWord === tile.word;
               return (
                 <button
@@ -730,7 +865,10 @@ export function WordChainsGame({
                   type="button"
                   disabled={tile.disabled}
                   onClick={() => handleSelectBankWord(tile.word)}
-                  className={`flex h-full min-h-[30px] items-center justify-center rounded-xl border text-[10px] font-semibold uppercase tracking-wide transition sm:h-[clamp(26px,3.2vh,34px)] sm:min-h-0 sm:text-xs ${
+                  aria-label={`${tile.word}, ${statusLabel}${
+                    tile.disabled ? ", unavailable" : ""
+                  }`}
+                  className={`flex h-full min-h-[30px] items-center justify-center rounded-xl border text-[10px] font-semibold uppercase tracking-wide transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 sm:h-[clamp(26px,3.2vh,34px)] sm:min-h-0 sm:text-xs ${
                     tile.disabled ? "cursor-not-allowed opacity-50" : "hover:-translate-y-0.5 hover:shadow-sm"
                   } ${tone} ${isHeld ? "ring-2 ring-slate-400 ring-offset-2" : ""}`}
                 >
@@ -769,10 +907,17 @@ export function WordChainsGame({
 
       {showResultsModal ? (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 px-4">
-          <div className="relative w-full max-w-lg max-h-[85svh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+          <div
+            ref={resultsModalRef}
+            tabIndex={-1}
+            className="relative w-full max-w-lg max-h-[85svh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="results-title"
+          >
             <button
               type="button"
-              onClick={() => setIsResultsOpen(false)}
+              onClick={closeResults}
               aria-label="Close results"
               className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-700"
             >
@@ -785,7 +930,7 @@ export function WordChainsGame({
               <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
                 Word Chains #{puzzle.puzzleNumber}
               </p>
-              <h3 className="text-2xl font-semibold">
+              <h3 id="results-title" className="text-2xl font-semibold">
                 {result === "win"
                   ? `Solved in ${submittedCount} ${submittedCount === 1 ? "try" : "tries"}!`
                   : "Out of Guesses"}
@@ -831,7 +976,11 @@ export function WordChainsGame({
               )}
             </div>
             {shareMessage ? (
-              <div className="mt-2 text-center text-xs font-medium text-amber-700">
+              <div
+                className="mt-2 text-center text-xs font-medium text-amber-700"
+                role="status"
+                aria-live="polite"
+              >
                 {shareMessage}
               </div>
             ) : null}
@@ -930,19 +1079,26 @@ export function WordChainsGame({
 
       {showHelp ? (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div
+            ref={helpModalRef}
+            tabIndex={-1}
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-title"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
                   How to play
                 </p>
-                <h3 className="text-2xl font-semibold text-slate-900">
+                <h3 id="help-title" className="text-2xl font-semibold text-slate-900">
                   Word Chains
                 </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setShowHelp(false)}
+                onClick={closeHelp}
                 aria-label="Close help"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
               >
@@ -996,7 +1152,7 @@ export function WordChainsGame({
             <div className="mt-5 flex justify-end">
               <button
                 type="button"
-                onClick={() => setShowHelp(false)}
+                onClick={closeHelp}
                 className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-amber-50 transition hover:bg-slate-800"
               >
                 Got it
@@ -1008,17 +1164,26 @@ export function WordChainsGame({
 
       {showStats ? (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div
+            ref={statsModalRef}
+            tabIndex={-1}
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stats-title"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
                   Stats
                 </p>
-                <h3 className="text-2xl font-semibold text-slate-900">Word Chains</h3>
+                <h3 id="stats-title" className="text-2xl font-semibold text-slate-900">
+                  Word Chains
+                </h3>
               </div>
               <button
                 type="button"
-                onClick={onCloseStats}
+                onClick={closeStats}
                 aria-label="Close stats"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
               >
@@ -1083,19 +1248,30 @@ export function WordChainsGame({
 
       {showBugModal ? (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div
+            ref={bugModalRef}
+            tabIndex={-1}
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bug-title"
+            aria-describedby="bug-helper"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
                   Report a bug
                 </p>
-                <h3 className="text-2xl font-semibold text-slate-900">
+                <h3 id="bug-title" className="text-2xl font-semibold text-slate-900">
                   Word Chains
                 </h3>
+                <p id="bug-helper" className="mt-2 text-xs text-slate-500">
+                  Describe what you saw and what you expected instead.
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowBugModal(false)}
+                onClick={closeBugModal}
                 aria-label="Close bug report"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
               >
@@ -1116,7 +1292,7 @@ export function WordChainsGame({
             <div className="mt-4 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowBugModal(false)}
+                onClick={closeBugModal}
                 className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-400"
               >
                 Cancel
@@ -1140,40 +1316,67 @@ export function WordChainsGame({
 
       {showSuggestionModal ? (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+          <div
+            ref={suggestionModalRef}
+            tabIndex={-1}
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="suggest-title"
+            aria-describedby="suggest-helper"
+          >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-slate-500">
                   Suggest a chain
                 </p>
-                <h3 className="text-2xl font-semibold text-slate-900">
+                <h3 id="suggest-title" className="text-2xl font-semibold text-slate-900">
                   Word Chains
                 </h3>
+                <p id="suggest-helper" className="mt-2 text-xs text-slate-500">
+                  Enter the full 8-word chain, one word per box.
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowSuggestionModal(false)}
+                onClick={closeSuggestionModal}
                 aria-label="Close suggestion"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
               >
                 ×
               </button>
             </div>
-            <div className="mt-4 space-y-3 text-sm text-slate-600">
-              <label className="text-xs font-semibold text-slate-600">
-                Your chain idea
-                <textarea
-                  value={suggestionText}
-                  onChange={(event) => setSuggestionText(event.target.value)}
-                  className="mt-1 min-h-[120px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                  placeholder="Example: Key → Chain → Reaction → Time..."
-                />
-              </label>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-slate-600 sm:grid-cols-4">
+              {suggestionWords.map((value, idx) => (
+                <label
+                  key={`suggest-word-${idx}`}
+                  className="text-xs font-semibold text-slate-600"
+                >
+                  Word {idx + 1}
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setSuggestionWords((prev) => {
+                        const next = [...prev];
+                        next[idx] = nextValue;
+                        return next;
+                      });
+                    }}
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                    placeholder={`Word ${idx + 1}`}
+                  />
+                </label>
+              ))}
             </div>
+            <p className="mt-2 text-xs text-slate-500">
+              All 8 words are required before submitting.
+            </p>
             <div className="mt-4 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setShowSuggestionModal(false)}
+                onClick={closeSuggestionModal}
                 className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-slate-400"
               >
                 Cancel
@@ -1181,9 +1384,9 @@ export function WordChainsGame({
               <button
                 type="button"
                 onClick={saveSuggestion}
-                disabled={suggestionSaving || !suggestionText.trim()}
+                disabled={suggestionSaving || !suggestionComplete}
                 className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition ${
-                  suggestionSaving || !suggestionText.trim()
+                  suggestionSaving || !suggestionComplete
                     ? "cursor-not-allowed bg-amber-200"
                     : "bg-amber-500 hover:bg-amber-600"
                 }`}
