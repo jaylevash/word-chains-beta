@@ -16,6 +16,30 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Word Chains",
   description: "A daily sequential word puzzle inspired by Wordle and Connections.",
+  metadataBase: new URL("https://wordchains.io"),
+  openGraph: {
+    title: "Word Chains",
+    description:
+      "Link eight words together in a daily chain puzzle inspired by Wordle and Connections.",
+    url: "https://wordchains.io",
+    siteName: "Word Chains",
+    images: [
+      {
+        url: "/og-wordchains.png",
+        width: 1200,
+        height: 630,
+        alt: "Word Chains",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Word Chains",
+    description:
+      "Link eight words together in a daily chain puzzle inspired by Wordle and Connections.",
+    images: ["/og-wordchains.png"],
+  },
 };
 
 export const viewport = {

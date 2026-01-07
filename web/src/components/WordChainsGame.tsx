@@ -337,7 +337,7 @@ export function WordChainsGame({
     if (!shareRows.length) return;
     try {
       const shareText = formatShareText(puzzle.puzzleNumber, shareRows);
-      const shareUrl = "https://word-chains-beta.vercel.app";
+      const shareUrl = "https://wordchains.io";
       if (typeof navigator !== "undefined" && "share" in navigator) {
         try {
           await navigator.share({
