@@ -19,6 +19,7 @@ const STORAGE_USER_ID = "wordchains:user-id:v1";
 const STORAGE_STATS = "wordchains:stats:v1";
 const STORAGE_STATS_LEGACY = "splice:stats:v1";
 const STORAGE_ENTRY_SEEN = "wordchains:entry-seen:v1";
+const STORAGE_DAILY_COMPLETION = "wordchains:daily-completion:v1";
 
 type StatsState = {
   totalPlayed: number;
@@ -181,6 +182,18 @@ type PuzzleStats = {
     "4": number;
     loss: number;
   };
+};
+
+type DailyCompletion = {
+  dateKey: string;
+  puzzleRowId: number;
+  result: "win" | "loss";
+  attemptsUsed: number;
+  durationSeconds: number;
+  attempts: string[][];
+  colorsByAttempt: TileColor[][];
+  shareRows: TileColor[][];
+  guessOutcomes: boolean[];
 };
 
 export function WordChainsGame({
@@ -381,6 +394,41 @@ export function WordChainsGame({
     });
   };
 
+  const storeDailyCompletion = ({
+    result: completionResult,
+    attemptsUsed,
+    durationSeconds,
+    nextColorsByAttempt,
+    nextShareRows,
+    nextGuessOutcomes,
+  }: {
+    result: "win" | "loss";
+    attemptsUsed: number;
+    durationSeconds: number;
+    nextColorsByAttempt: TileColor[][];
+    nextShareRows: TileColor[][];
+    nextGuessOutcomes: boolean[];
+  }) => {
+    if (puzzle.mode !== "daily") return;
+    if (typeof window === "undefined") return;
+    const dateKey = getLocalDateKey();
+    const payload: DailyCompletion = {
+      dateKey,
+      puzzleRowId,
+      result: completionResult,
+      attemptsUsed,
+      durationSeconds,
+      attempts,
+      colorsByAttempt: nextColorsByAttempt,
+      shareRows: nextShareRows,
+      guessOutcomes: nextGuessOutcomes,
+    };
+    localStorage.setItem(
+      `${STORAGE_DAILY_COMPLETION}:${dateKey}`,
+      JSON.stringify(payload)
+    );
+  };
+
   const handleSubmit = () => {
     if (disabledBecauseDone || !activeEditableFilled) return;
 
@@ -410,9 +458,11 @@ export function WordChainsGame({
       0,
       Math.round((Date.now() - startTimeRef.current) / 1000)
     );
+    const nextShareRows = [...shareRows, shareRow];
+    const nextGuessOutcomes = [...guessOutcomes, allGreen];
     setColorsByAttempt(nextColorsByAttempt);
-    setShareRows((prev) => [...prev, shareRow]);
-    setGuessOutcomes((prev) => [...prev, allGreen]);
+    setShareRows(nextShareRows);
+    setGuessOutcomes(nextGuessOutcomes);
     applyBestColors(guessWords, validationColors);
     setIsAnimating(true);
     setTimeout(() => {
@@ -420,6 +470,14 @@ export function WordChainsGame({
     }, flipDurationMs);
 
     if (allGreen) {
+      storeDailyCompletion({
+        result: "win",
+        attemptsUsed,
+        durationSeconds,
+        nextColorsByAttempt,
+        nextShareRows,
+        nextGuessOutcomes,
+      });
       setResult("win");
       trackEvent("puzzle_complete", {
         puzzle_id: puzzle.id,
@@ -439,6 +497,14 @@ export function WordChainsGame({
     }
 
     if (currentAttempt === attempts.length - 1) {
+      storeDailyCompletion({
+        result: "loss",
+        attemptsUsed,
+        durationSeconds,
+        nextColorsByAttempt,
+        nextShareRows,
+        nextGuessOutcomes,
+      });
       setResult("loss");
       trackEvent("puzzle_complete", {
         puzzle_id: puzzle.id,
@@ -690,6 +756,30 @@ export function WordChainsGame({
       setIsResultsOpen(true);
     }
   }, [result]);
+
+  useEffect(() => {
+    if (puzzle.mode !== "daily") return;
+    if (typeof window === "undefined") return;
+    const dateKey = getLocalDateKey();
+    const stored = localStorage.getItem(
+      `${STORAGE_DAILY_COMPLETION}:${dateKey}`
+    );
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as DailyCompletion;
+      if (Number(parsed.puzzleRowId) !== puzzleRowId) return;
+      if (parsed.result !== "win" && parsed.result !== "loss") return;
+      setAttempts(parsed.attempts);
+      setColorsByAttempt(parsed.colorsByAttempt);
+      setShareRows(parsed.shareRows);
+      setGuessOutcomes(parsed.guessOutcomes);
+      setCurrentAttempt(Math.max(0, parsed.attemptsUsed - 1));
+      setResult(parsed.result);
+      setStatusNote("You already played today.");
+    } catch {
+      return;
+    }
+  }, [puzzle.mode, puzzleRowId]);
 
   useEffect(() => {
     const shouldFetch = result !== "playing" && puzzleRowId && !puzzleStats;
