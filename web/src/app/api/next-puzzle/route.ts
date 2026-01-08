@@ -30,10 +30,46 @@ type DbPuzzle = {
   dummy_8: string;
   dummy_9: string;
   dummy_10: string;
+  qa_link_1: string;
+  qa_link_2: string;
+  qa_link_3: string;
+  qa_link_4: string;
+  qa_link_5: string;
+  qa_link_6: string;
+  qa_link_7: string;
 };
 
 type PlayRow = {
   puzzle_row_id: number | null;
+};
+
+type DailyRow = {
+  date_key: string | null;
+  puzzle_row_id: number | null;
+};
+
+const normalizeWord = (value: string | null) =>
+  value ? value.trim().toLowerCase() : "";
+
+const normalizeLink = (value: string | null) =>
+  value ? value.trim().toLowerCase().replace(/\s+/g, " ") : "";
+
+const parseDateKey = (dateKey: string) => {
+  const [year, month, day] = dateKey.split("-").map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+};
+
+const getRecentDateKeys = (dateKey: string, days: number) => {
+  const base = parseDateKey(dateKey);
+  if (!base) return [];
+  return Array.from({ length: days }, (_, idx) => {
+    const date = new Date(base);
+    date.setUTCDate(base.getUTCDate() - (idx + 1));
+    return date.toISOString().slice(0, 10);
+  });
 };
 
 const dayIndexFromKey = (dateKey: string) => {
@@ -129,13 +165,143 @@ export async function POST(request: Request) {
     const dayIndex = dayIndexFromKey(dateKey);
     const dayNumber = dayNumberFromKey(dateKey);
     const puzzleList = puzzles ?? [];
-    const daily =
-      dayIndex == null || puzzleList.length === 0
-        ? (seededShuffle(puzzleList, dateKey)[0] as DbPuzzle | undefined)
-        : (puzzleList[dayIndex % puzzleList.length] as DbPuzzle | undefined);
+    if (puzzleList.length === 0) {
+      return NextResponse.json({ puzzle: null, has_next: false });
+    }
+
+    const { data: existingDaily, error: dailyError } = await supabaseAdmin
+      .from("daily_puzzles")
+      .select("date_key, puzzle_row_id")
+      .eq("date_key", dateKey)
+      .maybeSingle();
+
+    if (dailyError) {
+      return NextResponse.json({ error: dailyError.message }, { status: 500 });
+    }
+
+    if (existingDaily?.puzzle_row_id != null) {
+      const existingPuzzle = puzzleList.find(
+        (puzzle) => Number(puzzle.id) === Number(existingDaily.puzzle_row_id)
+      ) as DbPuzzle | undefined;
+      return NextResponse.json({
+        puzzle: existingPuzzle ? mapPuzzle(existingPuzzle, dayNumber) : null,
+        has_next: false,
+      });
+    }
+
+    const recentKeys = getRecentDateKeys(dateKey, 30);
+    const { data: recentDaily, error: recentError } = await supabaseAdmin
+      .from("daily_puzzles")
+      .select("date_key, puzzle_row_id")
+      .in("date_key", recentKeys);
+
+    if (recentError) {
+      return NextResponse.json({ error: recentError.message }, { status: 500 });
+    }
+
+    const recentIds = new Set<number>();
+    (recentDaily as DailyRow[] | null)?.forEach((row) => {
+      if (row.puzzle_row_id != null) {
+        recentIds.add(Number(row.puzzle_row_id));
+      }
+    });
+
+    const recentPuzzles = puzzleList.filter((puzzle) =>
+      recentIds.has(Number(puzzle.id))
+    );
+    const bannedLinks = new Set<string>();
+    const bannedEndpoints = new Set<string>();
+    recentPuzzles.forEach((puzzle) => {
+      [
+        puzzle.qa_link_1,
+        puzzle.qa_link_2,
+        puzzle.qa_link_3,
+        puzzle.qa_link_4,
+        puzzle.qa_link_5,
+        puzzle.qa_link_6,
+        puzzle.qa_link_7,
+      ].forEach((link) => {
+        const normalized = normalizeLink(link);
+        if (normalized) bannedLinks.add(normalized);
+      });
+      const endpointA = normalizeWord(puzzle.word_1);
+      const endpointB = normalizeWord(puzzle.word_8);
+      if (endpointA) bannedEndpoints.add(endpointA);
+      if (endpointB) bannedEndpoints.add(endpointB);
+    });
+
+    const startIndex =
+      dayIndex == null ? 0 : dayIndex % puzzleList.length;
+    const ordered = [
+      ...puzzleList.slice(startIndex),
+      ...puzzleList.slice(0, startIndex),
+    ];
+    let selected: DbPuzzle | undefined;
+    for (const candidate of ordered) {
+      const candidateLinks = [
+        candidate.qa_link_1,
+        candidate.qa_link_2,
+        candidate.qa_link_3,
+        candidate.qa_link_4,
+        candidate.qa_link_5,
+        candidate.qa_link_6,
+        candidate.qa_link_7,
+      ].map((link) => normalizeLink(link));
+      const candidateEndpoints = [
+        normalizeWord(candidate.word_1),
+        normalizeWord(candidate.word_8),
+      ];
+      const linkConflict = candidateLinks.some((link) =>
+        bannedLinks.has(link)
+      );
+      const endpointConflict = candidateEndpoints.some((word) =>
+        bannedEndpoints.has(word)
+      );
+      if (!linkConflict && !endpointConflict) {
+        selected = candidate;
+        break;
+      }
+    }
+
+    let usedFallback = false;
+    if (!selected) {
+      selected = ordered[0];
+      usedFallback = true;
+    }
+
+    const { data: insertData, error: insertError } = await supabaseAdmin
+      .from("daily_puzzles")
+      .upsert(
+        { date_key: dateKey, puzzle_row_id: Number(selected.id) },
+        { onConflict: "date_key", ignoreDuplicates: true }
+      )
+      .select("puzzle_row_id")
+      .maybeSingle();
+
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    if (!insertData?.puzzle_row_id && existingDaily?.puzzle_row_id == null) {
+      const { data: fallbackDaily } = await supabaseAdmin
+        .from("daily_puzzles")
+        .select("puzzle_row_id")
+        .eq("date_key", dateKey)
+        .maybeSingle();
+      const fallbackPuzzle = puzzleList.find(
+        (puzzle) => Number(puzzle.id) === Number(fallbackDaily?.puzzle_row_id)
+      ) as DbPuzzle | undefined;
+      return NextResponse.json({
+        puzzle: fallbackPuzzle ? mapPuzzle(fallbackPuzzle, dayNumber) : null,
+        has_next: false,
+        warning: usedFallback ? "similarity_guard_fallback" : null,
+      });
+    }
+
     return NextResponse.json({
-      puzzle: daily ? mapPuzzle(daily, dayNumber) : null,
+      puzzle: selected ? mapPuzzle(selected, dayNumber) : null,
       has_next: false,
+      warning: usedFallback ? "similarity_guard_fallback" : null,
     });
   }
 

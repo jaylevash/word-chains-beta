@@ -1608,6 +1608,7 @@ type NextPuzzleResponse = {
   puzzle: Puzzle | null;
   has_next: boolean;
   error?: string;
+  warning?: string | null;
 };
 
 type PuzzleResponse = {
@@ -1649,6 +1650,9 @@ export function WordChainsApp({ initialPuzzleId }: { initialPuzzleId?: number } 
       throw new Error(payload?.error || "Unable to load puzzle.");
     }
     const payload = (await response.json()) as NextPuzzleResponse;
+    if (payload.warning) {
+      trackEvent("puzzle_warning", { warning: payload.warning });
+    }
     return payload.puzzle;
   };
 
