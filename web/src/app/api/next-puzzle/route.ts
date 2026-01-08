@@ -269,6 +269,14 @@ export async function POST(request: Request) {
       usedFallback = true;
     }
 
+    if (!selected) {
+      return NextResponse.json({
+        puzzle: null,
+        has_next: false,
+        warning: "no_daily_puzzle_available",
+      });
+    }
+
     const { data: insertData, error: insertError } = await supabaseAdmin
       .from("daily_puzzles")
       .upsert(
