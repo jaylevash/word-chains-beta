@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 
 type DailyRow = {
   date_key: string | null;
-  puzzles: { id: number; difficulty: string | null } | null;
+  puzzles: { id: number; difficulty: string | null }[] | null;
 };
 
 const dayIndexFromKey = (dateKey: string) => {
@@ -61,24 +61,25 @@ export default async function ArchivePage() {
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
           <ul className="divide-y divide-slate-100" id="archive-list">
             {(dailyRows as DailyRow[] | null)?.map((row) => {
-              if (!row.puzzles || !row.date_key) return null;
+              const puzzle = row.puzzles?.[0];
+              if (!puzzle || !row.date_key) return null;
               const dayNumber = dayNumberFromKey(row.date_key);
               return (
               <li
-                key={row.puzzles.id}
+                key={puzzle.id}
                 className="flex items-center justify-between py-3"
                 data-date-key={row.date_key}
               >
                 <div>
                   <div className="text-sm font-semibold">
-                    Word Chains #{dayNumber ?? row.puzzles.id}
+                    Word Chains #{dayNumber ?? puzzle.id}
                   </div>
                   <div className="text-xs uppercase tracking-wide text-slate-500">
-                    {row.puzzles.difficulty ?? "Unlabeled"}
+                    {puzzle.difficulty ?? "Unlabeled"}
                   </div>
                 </div>
                 <Link
-                  href={`/puzzle/${row.puzzles.id}`}
+                  href={`/puzzle/${puzzle.id}`}
                   className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-50 transition hover:bg-slate-800"
                 >
                   Play
