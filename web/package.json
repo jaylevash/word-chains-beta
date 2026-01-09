@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "validate-puzzles": "node scripts/validate-puzzles.mjs"
+    "validate-puzzles": "node scripts/validate-puzzles.mjs",
+    "generate-candidates": "node scripts/generate-candidates.mjs"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.1",

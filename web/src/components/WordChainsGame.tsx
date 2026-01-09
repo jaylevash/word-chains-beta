@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Puzzle } from "@/lib/puzzles";
 import { trackEvent } from "@/lib/analytics";
@@ -835,7 +836,13 @@ export function WordChainsGame({
       </div>
       <header className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2 sm:px-6 sm:py-4">
         <div className="justify-self-start text-xs font-semibold text-slate-500 sm:text-sm">
-          Puzzle #{puzzle.puzzleNumber}
+          <div>Puzzle #{puzzle.puzzleNumber}</div>
+          <Link
+            href="/archive"
+            className="mt-1 inline-block text-[10px] font-semibold text-slate-400 transition hover:text-slate-600 sm:text-xs"
+          >
+            Archive
+          </Link>
         </div>
         <h1 className="justify-self-center bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 bg-clip-text text-xl font-semibold text-transparent sm:text-3xl">
           Word Chains
