@@ -27,6 +27,8 @@ export const enforceOrigin = (request: Request) => {
   if (!allowedOrigins.length) return null;
   const origin = request.headers.get("origin");
   if (!origin) return null;
+  const requestOrigin = new URL(request.url).origin;
+  if (origin === requestOrigin) return null;
   const isAllowed = allowedOrigins.includes(origin);
   if (isAllowed) return null;
   return NextResponse.json({ error: "origin_not_allowed" }, { status: 403 });
