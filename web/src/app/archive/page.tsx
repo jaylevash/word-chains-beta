@@ -3,7 +3,10 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 
 type DailyRow = {
   date_key: string | null;
-  puzzles: { id: number; difficulty: string | null }[] | null;
+  puzzles:
+    | { id: number; difficulty: string | null }
+    | { id: number; difficulty: string | null }[]
+    | null;
 };
 
 const dayIndexFromKey = (dateKey: string) => {
@@ -61,7 +64,9 @@ export default async function ArchivePage() {
         <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 sm:p-6">
           <ul className="divide-y divide-slate-100" id="archive-list">
             {(dailyRows as DailyRow[] | null)?.map((row) => {
-              const puzzle = row.puzzles?.[0];
+              const puzzle = Array.isArray(row.puzzles)
+                ? row.puzzles[0]
+                : row.puzzles;
               if (!puzzle || !row.date_key) return null;
               const dayNumber = dayNumberFromKey(row.date_key);
               return (
