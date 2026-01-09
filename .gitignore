@@ -1,1 +1,4 @@
 .swift-cache/
+.vercel
+.env*.local
+.vercel-cli/
